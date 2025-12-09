@@ -1,0 +1,45 @@
+services:
+  # ================================
+  # Backend NestJS (Desarrollo)
+  # ================================
+  backend-dev:
+    build:
+      context: ./MAA-HairStdio_Backend
+      dockerfile: Dockerfile.dev
+    container_name: maa-backend-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./MAA-HairStdio_Backend/.env
+    volumes:
+      - ./MAA-HairStdio_Backend/src:/app/src:delegated
+    networks:
+      - maa-network-dev
+    environment:
+      - NODE_ENV=development
+
+  # ================================
+  # Frontend Angular (Desarrollo)
+  # ================================
+  frontend-dev:
+    build:
+      context: ./MAA-HairStdio_Frontend
+      dockerfile: Dockerfile.dev
+    container_name: maa-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./MAA-HairStdio_Frontend/src:/app/src:delegated
+    environment:
+      - NODE_ENV=development
+      - API_URL=http://backend-dev:3000/api/v1
+    depends_on:
+      - backend-dev
+    networks:
+      - maa-network-dev
+
+networks:
+  maa-network-dev:
+    driver: bridge

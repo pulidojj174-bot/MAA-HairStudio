@@ -1,0 +1,27 @@
+# ================================
+# Dockerfile para Desarrollo
+# ================================
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Instalar herramientas de desarrollo
+RUN apk add --no-cache bash curl
+
+# Copiar archivos de configuración
+COPY package*.json ./
+COPY angular.json ./
+COPY tsconfig*.json ./
+
+# Instalar todas las dependencias (incluyendo devDependencies)
+RUN npm install
+
+# Copiar código fuente
+COPY src ./src
+COPY public ./public 2>/dev/null || true
+
+# Exponer puerto de desarrollo
+EXPOSE 4200
+
+# Comando para desarrollo con hot-reload
+CMD ["npm", "run", "start", "--", "--host", "0.0.0.0", "--poll=2000"]

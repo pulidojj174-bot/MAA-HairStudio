@@ -1,0 +1,3 @@
+[submodule "MAA-HairStdio_Frontend"]
+	path = MAA-HairStdio_Frontend
+	url = git@github.com:LuMarka/MAA-HairStudio.git

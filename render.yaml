@@ -1,0 +1,111 @@
+services:
+  # ================================
+  # Backend NestJS
+  # ================================
+  - type: web
+    name: maa-backend
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    
+    # ✅ Indicar el directorio raíz del servicio
+    rootDir: MAA-HairStdio_Backend
+    
+    # Las rutas ahora son relativas a rootDir
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    
+    healthCheckPath: /api/v1/health
+    numInstances: 1
+    
+    envVars:
+      # Node Environment
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+
+      # Database Configuration (Neon PostgreSQL)
+      # ⚠️ TODAS estas variables deben configurarse en Render Dashboard
+      - key: PGHOST
+        sync: false
+      - key: PGHOST_UNPOOLED
+        sync: false
+      - key: PGUSER
+        sync: false
+      - key: PGDATABASE
+        sync: false
+      - key: PGPASSWORD
+        sync: false
+
+      # JWT Configuration
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES
+        value: 3h
+
+      # Email Configuration
+      # ⚠️ Configurar en Render Dashboard
+      - key: CORREO_PRUEBA
+        sync: false
+      - key: CODIGO_VERIFICACION
+        sync: false
+
+      # Shippo API
+      # ⚠️ Configurar en Render Dashboard
+      - key: SHIPPO_API_KEY
+        sync: false
+
+      # Other
+      - key: contrasena
+        sync: false
+
+    autoDeploy: true
+    
+    buildFilter:
+      paths:
+        - MAA-HairStdio_Backend/**
+      ignoredPaths:
+        - MAA-HairStdio_Backend/node_modules/**
+        - MAA-HairStdio_Backend/.env
+
+  # ================================
+  # Frontend Angular SSR (Submódulo)
+  # ================================
+  - type: web
+    name: maa-frontend
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    
+    # ✅ Indicar el directorio raíz del submódulo
+    rootDir: MAA-HairStdio_Frontend
+    
+    # Las rutas ahora son relativas a rootDir
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    
+    healthCheckPath: /
+    numInstances: 1
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4200
+      - key: API_URL
+        fromService:
+          type: web
+          name: maa-backend
+          envVarKey: RENDER_EXTERNAL_URL
+
+    autoDeploy: true
+    
+    buildFilter:
+      paths:
+        - MAA-HairStdio_Frontend/**
+      ignoredPaths:
+        - MAA-HairStdio_Frontend/node_modules/**
+        - MAA-HairStdio_Frontend/.angular/**

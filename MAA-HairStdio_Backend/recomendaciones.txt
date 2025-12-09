@@ -1,0 +1,73 @@
+Analizando la estructura completa de tu proyecto MAA-HairStudio_backend, te propongo el orden óptimo para revisar y mejorar cada módulo antes de implementar MercadoPago:
+
+🏗️ Orden de Revisión Recomendado
+🔥 NIVEL 1: Módulos Críticos de Base (Prioridad Alta)
+1. Users 📍 EMPEZAR AQUÍ
+Por qué primero: Base de todo el sistema de autenticación
+Mejoras clave: Implementar @Exclude() para passwords, optimizar consultas
+Impacto: Seguridad en toda la aplicación
+2. Auth 🔐
+Por qué segundo: Depende de Users y afecta todos los endpoints protegidos
+Mejoras clave: Validar JWT, optimizar strategies, roles
+Impacto: Seguridad y acceso controlado
+🏪 NIVEL 2: Módulos de Catálogo (Prioridad Alta)
+3. Categories 📂
+Por qué: Base para organizar productos
+Mejoras clave: Validaciones, optimizar consultas
+Impacto: Estructura del catálogo
+4. Subcategories 📁
+Por qué: Depende de Categories
+Mejoras clave: Relaciones con Categories, validaciones
+Impacto: Organización detallada de productos
+5. Products 🛍️ PROBLEMA IDENTIFICADO
+Por qué: Núcleo del e-commerce, ya identificamos conflictos de rutas
+Mejoras clave: Reordenar rutas, optimizar filtros, paginación
+Impacto: Funcionalidad principal del e-commerce
+🛒 NIVEL 3: Módulos de Compra (Prioridad Media)
+6. Cart 🛒
+Por qué: Integra con Products y Orders
+Mejoras clave: Sincronización, validaciones de stock
+Impacto: Experiencia de compra
+7. Wishlist ❤️
+Por qué: Funcionalidad complementaria
+Mejoras clave: Optimizar consultas, validaciones
+Impacto: Experiencia del usuario
+📦 NIVEL 4: Módulos de Entrega (Prioridad Media)
+8. Address 📍
+Por qué: Necesario para Orders y envíos
+Mejoras clave: Validaciones de direcciones, integración con Shippo
+Impacto: Gestión de envíos
+9. Orders ✅ YA REVISADO
+Estado: Ya optimizado y funcional
+Siguiente: Preparar para integración con MercadoPago
+🎯 Plan de Acción Propuesto
+📋 Metodología por módulo:
+🔍 Análisis: Revisar código actual
+⚠️ Identificar: Problemas y mejoras
+🔧 Implementar: Correcciones y optimizaciones
+🧪 Verificar: Testing de funcionalidad
+✅ Validar: Integración con otros módulos
+⏱️ Tiempo estimado:
+Módulos críticos (1-2): 2-3 horas
+Módulos de catálogo (3-5): 3-4 horas
+Módulos de compra (6-7): 2-3 horas
+Módulos de entrega (8): 1-2 horas
+Total: ~8-12 horas de trabajo1
+
+🧪 Testing en Postman:
+1. Crear producto con colección:
+
+POST {{baseUrl}}/productsAuthorization: Bearer {{adminToken}}Content-Type: application/json{  "name": "Shampoo Hidratante Premium",  "description": "Shampoo especial para cabello seco",  "price": 25.99,  "subcategoryId": "{{subcategoryId}}",  "image": "https://example.com/shampoo.jpg",  "brand": "L'Oréal",  "collection": "Elvive Hidra Hialuronic"}
+2. Filtrar por colección:
+
+GET {{baseUrl}}/products?collection=Elvive Hidra Hialuronic&limit=10
+3. Buscar incluyendo colección:
+
+GET {{baseUrl}}/products/search?q=hidratante&collection=Elvive&limit=10
+4. Obtener productos por colección:
+
+GET {{baseUrl}}/products/collection/Elvive Hidra Hialuronic?limit=20&page=1
+5. Obtener lista de colecciones:
+
+GET {{baseUrl}}/products/collections/list
+📋 Ejecutar cambios:

@@ -1,0 +1,26 @@
+# ================================
+# Dockerfile para Desarrollo
+# ================================
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Instalar herramientas de desarrollo
+RUN apk add --no-cache bash curl
+
+# Copiar archivos de dependencias
+COPY package*.json ./
+COPY tsconfig*.json ./
+COPY nest-cli.json ./
+
+# Instalar todas las dependencias (incluyendo devDependencies)
+RUN npm install
+
+# Copiar código fuente
+COPY src ./src
+
+# Exponer puerto de la aplicación y debug
+EXPOSE 3000 9229
+
+# Comando para desarrollo con hot-reload
+CMD ["npm", "run", "start:dev"]
