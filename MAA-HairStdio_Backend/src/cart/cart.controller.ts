@@ -26,7 +26,7 @@ import { RolesGuard } from 'src/auth/roles/roles.guard';
 
 interface AuthRequest extends Request {
   user: {
-    userId: string;
+    id: string;  // CAMBIADO de userId a id
     email: string;
     role: UserRole.ADMIN | UserRole.USER | UserRole.CUSTOM;
   };
@@ -53,7 +53,7 @@ export class CartController {
       throw new BadRequestException('El límite debe estar entre 1 y 50');
     }
 
-    return await this.cartService.getCart(req.user.userId, page, limit);
+    return await this.cartService.getCart(req.user.id, page, limit);  // id en lugar de userId
   }
 
   // ✅ AGREGAR PRODUCTO AL CARRITO
@@ -62,7 +62,7 @@ export class CartController {
     @Request() req: AuthRequest,
     @Body() addToCartDto: AddToCartDto,
   ) {
-    return await this.cartService.addToCart(req.user.userId, addToCartDto);
+    return await this.cartService.addToCart(req.user.id, addToCartDto);  // ✅
   }
 
   // ✅ ACTUALIZAR ITEM DEL CARRITO
@@ -71,7 +71,7 @@ export class CartController {
     @Request() req: AuthRequest,
     @Body() updateCartItemDto: UpdateCartItemDto,
   ) {
-    return await this.cartService.updateCartItem(req.user.userId, updateCartItemDto);
+    return await this.cartService.updateCartItem(req.user.id, updateCartItemDto);  // ✅
   }
 
   // ✅ ELIMINAR PRODUCTO DEL CARRITO
@@ -80,19 +80,19 @@ export class CartController {
     @Request() req: AuthRequest,
     @Param('productId', ParseUUIDPipe) productId: string,
   ) {
-    return await this.cartService.removeFromCart(req.user.userId, productId);
+    return await this.cartService.removeFromCart(req.user.id, productId);  // ✅
   }
 
   // ✅ LIMPIAR CARRITO COMPLETO
   @Delete('clear')
   async clearCart(@Request() req: AuthRequest) {
-    return await this.cartService.clearCart(req.user.userId);
+    return await this.cartService.clearCart(req.user.id);  // ✅
   }
 
   // ✅ OBTENER SOLO EL RESUMEN DEL CARRITO
   @Get('summary')
   async getCartSummary(@Request() req: AuthRequest) {
-    const summary = await this.cartService.getCartSummary(req.user.userId);
+    const summary = await this.cartService.getCartSummary(req.user.id);  // ✅
     return {
       success: true,
       message: 'Resumen obtenido exitosamente',
@@ -103,13 +103,13 @@ export class CartController {
   // ✅ VALIDAR DISPONIBILIDAD DE TODOS LOS ITEMS
   @Get('validate')
   async validateCartAvailability(@Request() req: AuthRequest) {
-    return await this.cartService.validateCartAvailability(req.user.userId);
+    return await this.cartService.validateCartAvailability(req.user.id);  // ✅
   }
 
   // ✅ OBTENER CANTIDAD DE ITEMS (endpoint rápido para badges)
   @Get('count')
   async getCartCount(@Request() req: AuthRequest) {
-    const summary = await this.cartService.getCartSummary(req.user.userId);
+    const summary = await this.cartService.getCartSummary(req.user.id);  // ✅
     return {
       success: true,
       message: 'Cantidad obtenida exitosamente',
