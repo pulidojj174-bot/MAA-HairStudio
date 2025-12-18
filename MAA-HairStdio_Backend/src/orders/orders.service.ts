@@ -63,7 +63,7 @@ export class OrdersService {
       // ✅ DENTRO de la transacción, recargar el carrito usando queryRunner
       const cart = await queryRunner.manager.findOne(Cart, {
         where: { id: cartInitial.id },
-        relations: ['items', 'items.product'],
+        relations: ['items', 'items.product', 'user', 'user.addresses'],
       });
 
       this.logger.log(`✅ Carrito reloaded DENTRO de transacción:`, {

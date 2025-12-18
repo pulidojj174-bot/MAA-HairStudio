@@ -16,6 +16,9 @@ import { AddressModule } from './address/address.module';
 /* import { ShippoModule } from './shippo/shippo.module'; */
 import { OrdersModule } from './orders/orders.module';
 import { HealthModule } from './healt/healt.module';
+import { PaymentsController } from './payments/payments.controller';
+import { PaymentsModule } from './payments/payments.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -67,9 +70,11 @@ import { HealthModule } from './healt/healt.module';
     AddressModule,
     OrdersModule,
     HealthModule,
+    PaymentsModule,
+    WebhooksModule,
     /* ShippoModule, */
   ],
-  controllers: [AppController],
+  controllers: [AppController, PaymentsController],
   providers: [AppService],
 })
 export class AppModule {}
