@@ -12,6 +12,7 @@ import {
   ParseUUIDPipe,
   DefaultValuePipe,
   ParseIntPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles/roles.guard';
@@ -147,5 +148,35 @@ export class PaymentsController {
     @Request() req: AuthRequest,
   ) {
     return await this.paymentsService.getPaymentDetails(paymentId, req.user.id);
+  }
+
+  // ✅ NUEVO ENDPOINT: Verificar estado del pago
+  @Get('verify/:orderId')
+  async verifyPayment(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Request() req: AuthRequest,
+  ) {
+    const payment = await this.paymentsService.findPaymentByOrderId(orderId);
+    
+    if (!payment) {
+      return {
+        success: false,
+        message: 'Pago no encontrado',
+        status: null,
+      };
+    }
+
+    // Verificar que el usuario es el dueño
+    if (payment.user.id !== req.user.id) {
+      throw new ForbiddenException('No tienes acceso a este pago');
+    }
+
+    return {
+      success: true,
+      message: 'Pago verificado',
+      status: payment.status,
+      order: payment.order,
+      data: payment,
+    };
   }
 }

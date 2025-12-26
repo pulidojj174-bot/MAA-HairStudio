@@ -83,4 +83,30 @@ export class WebhooksController {
     const matches = resource.match(/\/merchant_orders\/(\d+)/);
     return matches ? matches[1] : resource;
   }
+
+  // ✅ DEBUG: SIMULAR WEBHOOK (SOLO PARA TESTING)
+  @Post('mercado-pago/debug/:paymentId')
+  async debugWebhook(
+    @Body() payload: any,
+  ) {
+    try {
+      this.logger.log(`🔧 DEBUG: Simulando webhook para pago`);
+      
+      // El payload debe contener el paymentId de Mercado Pago
+      if (!payload.mercadoPagoPaymentId) {
+        throw new BadRequestException('Falta mercadoPagoPaymentId en el payload');
+      }
+
+      await this.webhooksService.processPaymentWebhook(payload.mercadoPagoPaymentId);
+      
+      return {
+        success: true,
+        message: 'Webhook simulado exitosamente',
+        paymentId: payload.mercadoPagoPaymentId,
+      };
+    } catch (error) {
+      this.logger.error(`❌ Error en debug webhook: ${error.message}`);
+      throw error;
+    }
+  }
 }

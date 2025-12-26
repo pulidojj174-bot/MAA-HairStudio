@@ -646,4 +646,61 @@ export class OrdersService {
       throw error;
     }
   }
+
+  // ✅ SINCRONIZAR ORDEN CON PAGO DE MERCADO PAGO
+  async syncOrderWithPayment(orderId: string, userId: string) {
+    try {
+      // 1. Obtener la orden
+      const order = await this.orderRepository.findOne({
+        where: { id: orderId },
+        relations: ['user', 'items'],
+      });
+
+      if (!order) {
+        throw new NotFoundException('Orden no encontrada');
+      }
+
+      // 2. Validar que pertenece al usuario
+      if (order.user.id !== userId) {
+        throw new ForbiddenException('No tienes acceso a esta orden');
+      }
+
+      // 3. Buscar el pago asociado para obtener el mercadoPagoPaymentId
+      // Importa Payment si no está
+      const payment = await this.orderRepository.query(
+        `SELECT p.* FROM payments p WHERE p."orderId" = $1 LIMIT 1`,
+        [orderId]
+      );
+
+      if (!payment || payment.length === 0) {
+        throw new NotFoundException('No se encontró pago para esta orden');
+      }
+
+      const mercadoPagoPaymentId = payment[0].mercadoPagoPaymentId;
+
+      if (!mercadoPagoPaymentId) {
+        throw new BadRequestException('El pago no tiene ID de Mercado Pago');
+      }
+
+      // 4. Sincronizar la orden con el ID del pago
+      order.mercadoPagoPaymentId = mercadoPagoPaymentId;
+      order.mercadoPagoId = mercadoPagoPaymentId;
+      order.updatedAt = new Date();
+
+      const updatedOrder = await this.orderRepository.save(order);
+
+      this.logger.log(
+        `✅ Orden ${order.orderNumber} sincronizada con pago ${mercadoPagoPaymentId}`
+      );
+
+      return {
+        success: true,
+        message: 'Orden sincronizada con pago de Mercado Pago',
+        data: updatedOrder,
+      };
+    } catch (error) {
+      this.logger.error(`Error sincronizando orden ${orderId}:`, error);
+      throw error;
+    }
+  }
 }

@@ -111,4 +111,13 @@ export class OrdersController {
   ) {
     return this.ordersService.updateStatus(id, updateDto);
   }
+
+  // ✅ SINCRONIZAR ORDEN CON PAGO DE MERCADO PAGO
+  @Patch(':id/sync-payment')
+  async syncOrderPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: AuthRequest
+  ) {
+    return this.ordersService.syncOrderWithPayment(id, req.user.id);
+  }
 }

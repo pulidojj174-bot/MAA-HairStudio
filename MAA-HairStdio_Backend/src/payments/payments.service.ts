@@ -11,7 +11,7 @@ import { Payment, PaymentMethodEnum } from './entities/payment.entity';
 import { PaymentTransaction } from './entities/payment-transaction.entity';
 import { Order, OrderStatus } from '../orders/orders.entity';
 import { CreatePaymentDto, PaymentResponseDto } from './dto/create-payment.dto';
-import { MercadoPagoPreference } from './interfaces/mercado-pago.interface';
+import { MercadoPagoPreferenceItem } from './interfaces/mercado-pago.interface';
 import {
   MercadoPagoConfig,
   Preference,
@@ -110,17 +110,12 @@ export class PaymentsService {
                 }
               : undefined,
         },
-        /* back_urls: {
-          success: `${this.configService.get<string>('FRONTEND_URL')}/order/${order.id}/success`,
-          failure: `${this.configService.get<string>('FRONTEND_URL')}/order/${order.id}/failure`,
-          pending: `${this.configService.get<string>('FRONTEND_URL')}/order/${order.id}/pending`,
-        }, */
         back_urls: {
-          success: `http://localhost:4200/payment/success?order=${order.id}`,
-          failure: `http://localhost:4200/payment/failure?order=${order.id}`,
-          pending: `http://localhost:4200/payment/pending?order=${order.id}`,
+          success: `${this.configService.get<string>('FRONTEND_URL')}/order/${order.id}/success?order_id=${order.id}`,
+          failure: `${this.configService.get<string>('FRONTEND_URL')}/order/${order.id}/failure?order_id=${order.id}`,
+          pending: `${this.configService.get<string>('FRONTEND_URL')}/order/${order.id}/pending?order_id=${order.id}`,
         },
-        // auto_return: 'approved',
+        // ❌ ELIMINAR: auto_return: 'approved' as any,
         external_reference: order.id,
         notification_url: `${this.configService.get<string>('API_URL')}/api/v1/webhooks/mercado-pago`,
         metadata: {
@@ -154,6 +149,10 @@ export class PaymentsService {
       });
 
       await this.paymentRepository.save(payment);
+
+      // ✅ ACTUALIZAR LA ORDEN CON EL ID DEL PAGO
+      order.mercadoPagoPaymentId = preferenceResponse.id;
+      await this.orderRepository.save(order);
 
       this.logger.log(
         `✅ Preference creada: ${preferenceResponse.id} para orden ${order.orderNumber}`,
@@ -662,4 +661,32 @@ export class PaymentsService {
       data: payment,
     };
   }
+}
+
+// ✅ ACTUALIZAR INTERFACE
+
+export interface MercadoPagoPreference {
+  items: MercadoPagoPreferenceItem[];
+  payer: {
+    name?: string;
+    email: string;
+    phone?: {
+      area_code?: string;
+      number?: string;
+    };
+    address?: {
+      street_name?: string;
+      street_number?: string;
+      zip_code?: string;
+    };
+  };
+  back_urls?: {
+    success: string;
+    failure: string;
+    pending: string;
+  };
+  auto_return?: 'approved' | 'all'; // ✅ Mantener como optional
+  external_reference: string;
+  notification_url?: string;
+  metadata?: Record<string, any>;
 }
