@@ -147,4 +147,43 @@ export class WebhooksService {
       throw error;
     }
   }
+
+  // ✅ VERIFICAR ESTADO DE PAGO (Para que el frontend verifique después de pagar)
+  async verifyPaymentStatus(orderId: string): Promise<any> {
+    try {
+      this.logger.log(`🔍 Verificando estado de pago para orden: ${orderId}`);
+
+      // Buscar el pago por order ID
+      const payment = await this.paymentsService.findPaymentByOrderId(orderId);
+
+      if (!payment) {
+        this.logger.warn(`⚠️ No hay pago para la orden: ${orderId}`);
+        return {
+          success: false,
+          message: 'No se encontró pago para esta orden',
+          status: 'not_found',
+          paymentStatus: null,
+        };
+      }
+
+      this.logger.log(`✅ Pago encontrado para orden ${orderId}: ${payment.status}`);
+
+      return {
+        success: true,
+        message: 'Estado de pago obtenido',
+        status: payment.status,
+        paymentStatus: payment.status,
+        paymentId: payment.id,
+        orderId: orderId,
+        amount: payment.amount,
+        currency: payment.currency,
+        webhookProcessed: payment.webhookProcessed,
+        approvedAt: payment.approvedAt,
+        data: payment,
+      };
+    } catch (error) {
+      this.logger.error(`❌ Error verificando estado: ${error.message}`);
+      throw error;
+    }
+  }
 }
