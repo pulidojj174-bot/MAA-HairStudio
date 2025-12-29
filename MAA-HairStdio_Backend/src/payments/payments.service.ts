@@ -459,6 +459,37 @@ export class PaymentsService {
     }
   }
 
+  // ✅ OBTENER DATOS DE PAGO CON REINTENTOS
+  async getMercadoPagoPaymentDataWithRetry(
+    mercadoPagoPaymentId: string,
+    maxRetries = 3,
+    delayMs = 1000,
+  ): Promise<any> {
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        this.logger.log(
+          `🔍 Intento ${attempt}/${maxRetries} de obtener datos de pago: ${mercadoPagoPaymentId}`,
+        );
+
+        const paymentData = await this.getMercadoPagoPaymentData(mercadoPagoPaymentId);
+        return paymentData;
+      } catch (error) {
+        lastError = error;
+        this.logger.warn(
+          `⚠️ Intento ${attempt} falló: ${error.message}`,
+        );
+
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
+        }
+      }
+    }
+
+    throw lastError || new Error('No se pudo obtener datos de pago');
+  }
+
   private mapPaymentMethod(paymentMethodId: string): PaymentMethodEnum {
     const mapping = {
       credit_card: PaymentMethodEnum.CREDIT_CARD,
