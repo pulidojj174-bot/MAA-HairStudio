@@ -111,10 +111,15 @@ export class PaymentsService {
               : undefined,
         },
         back_urls: {
+          success: `http://localhost:4200/payment/success?order_id=${order.id}`,
+          failure: `http://localhost:4200/payment/failure?order_id=${order.id}`,
+          pending: `http://localhost:4200/payment/pending?order_id=${order.id}`,
+        },
+        /* back_urls: {
           success: `${this.configService.get<string>('FRONTEND_URL')}/order/${order.id}/success?order_id=${order.id}`,
           failure: `${this.configService.get<string>('FRONTEND_URL')}/order/${order.id}/failure?order_id=${order.id}`,
           pending: `${this.configService.get<string>('FRONTEND_URL')}/order/${order.id}/pending?order_id=${order.id}`,
-        },
+        }, */
         // ❌ ELIMINAR: auto_return: 'approved' as any,
         external_reference: order.id,
         notification_url: `${this.configService.get<string>('API_URL')}/api/v1/webhooks/mercado-pago`,
@@ -473,16 +478,17 @@ export class PaymentsService {
           `🔍 Intento ${attempt}/${maxRetries} de obtener datos de pago: ${mercadoPagoPaymentId}`,
         );
 
-        const paymentData = await this.getMercadoPagoPaymentData(mercadoPagoPaymentId);
+        const paymentData =
+          await this.getMercadoPagoPaymentData(mercadoPagoPaymentId);
         return paymentData;
       } catch (error) {
         lastError = error;
-        this.logger.warn(
-          `⚠️ Intento ${attempt} falló: ${error.message}`,
-        );
+        this.logger.warn(`⚠️ Intento ${attempt} falló: ${error.message}`);
 
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
+          await new Promise((resolve) =>
+            setTimeout(resolve, delayMs * attempt),
+          );
         }
       }
     }
