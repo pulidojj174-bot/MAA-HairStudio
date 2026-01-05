@@ -8,6 +8,9 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  UseFilters,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { WebhooksService } from './webhooks.service';
 import { ProcessWebhookDto } from '../payments/dto/process-webhook.dto';
@@ -18,10 +21,11 @@ export class WebhooksController {
 
   constructor(private readonly webhooksService: WebhooksService) {}
 
-  // ✅ WEBHOOK DE MERCADO PAGO (SIN AUTENTICACIÓN JWT)
+  // ✅ WEBHOOK DE MERCADO PAGO (SIN VALIDACIÓN ESTRICTA)
   @Post('mercado-pago')
+  @HttpCode(HttpStatus.OK)
   async handleMercadoPagoWebhook(
-    @Body() payload: ProcessWebhookDto,
+    @Body() payload: any, // 👈 Cambiar a 'any' para aceptar cualquier estructura
     @Headers('x-signature') signature: string,
     @Headers('x-request-id') requestId: string,
   ) {
@@ -86,8 +90,9 @@ export class WebhooksController {
     }
   }
 
-  // ✅ HEALTH CHECK PARA WEBHOOK
+  // ✅ WEBHOOK HEALTH CHECK
   @Post('mercado-pago/health')
+  @HttpCode(HttpStatus.OK)
   async webhookHealth() {
     this.logger.log('🏥 Health check webhook recibido');
     return {
@@ -99,7 +104,7 @@ export class WebhooksController {
     };
   }
 
-  // ✅ VERIFICAR ESTADO DE PAGO (Frontend lo usa para verificar después de pagar)
+  // ✅ VERIFICAR ESTADO DE PAGO
   @Get('mercado-pago/verify/:orderId')
   async verifyPaymentStatus(
     @Param('orderId', ParseUUIDPipe) orderId: string,
@@ -114,10 +119,11 @@ export class WebhooksController {
     }
   }
 
-  // ✅ DEBUG: SIMULAR WEBHOOK (SOLO PARA TESTING)
+  // ✅ DEBUG: SIMULAR WEBHOOK
   @Post('mercado-pago/debug')
+  @HttpCode(HttpStatus.OK)
   async debugWebhook(
-    @Body() payload: any,
+    @Body() payload: any, // 👈 También cambiar aquí
   ) {
     try {
       this.logger.log(`🔧 DEBUG: Webhook manual simulado`);
