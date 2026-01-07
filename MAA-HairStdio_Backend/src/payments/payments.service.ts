@@ -111,9 +111,9 @@ export class PaymentsService {
               : undefined,
         },
         back_urls: {
-          success: `http://localhost:4200/payment/success?order_id=${order.id}`,
-          failure: `http://localhost:4200/payment/failure?order_id=${order.id}`,
-          pending: `http://localhost:4200/payment/pending?order_id=${order.id}`,
+          success: `https://www.maahairstudio.com/payment/success?order_id=${order.id}`,
+          failure: `https://www.maahairstudio.com/payment/failure?order_id=${order.id}`,
+          pending: `https://www.maahairstudio.com/payment/pending?order_id=${order.id}`,
         },
         /* back_urls: {
           success: `${this.configService.get<string>('FRONTEND_URL')}/order/${order.id}/success?order_id=${order.id}`,
@@ -170,7 +170,7 @@ export class PaymentsService {
           paymentId: payment.id,
           preferenceId: preferenceResponse.id,
           initPoint: preferenceResponse.init_point,
-          sandboxInitPoint: preferenceResponse.sandbox_init_point,
+          sandboxInitPoint: preferenceResponse.init_point,
           orderId: order.id,
           amount: order.total,
           currency: 'ARS',
