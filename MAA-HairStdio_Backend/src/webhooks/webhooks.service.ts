@@ -2,9 +2,15 @@ import {
   Injectable,
   Logger,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { PaymentsService } from '../payments/payments.service';
+import { Payment } from '../payments/entities/payment.entity';
+import { Order } from '../orders/orders.entity';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -12,7 +18,12 @@ export class WebhooksService {
   private readonly logger = new Logger(WebhooksService.name);
 
   constructor(
+    @Inject(forwardRef(() => PaymentsService))
     private readonly paymentsService: PaymentsService,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
     private readonly configService: ConfigService,
   ) {}
 
