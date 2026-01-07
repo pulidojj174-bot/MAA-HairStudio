@@ -57,7 +57,7 @@ export class WebhooksService {
         return false;
       }
 
-      // ✅ PARSEAR FIRMA: "id=...,ts=...,v1=..."
+      // ✅ PARSEAR FIRMA: "ts=...,v1=..." o "id=...,ts=...,v1=..."
       const signatureParts = signature.split(',');
       const signatureData: any = {};
 
@@ -70,16 +70,22 @@ export class WebhooksService {
 
       const { id: signId, ts: timestamp, v1: receivedHash } = signatureData;
 
-      if (!signId || !timestamp || !receivedHash) {
+      // ⚠️ timestamp es REQUERIDO, id es OPCIONAL (Mercado Pago puede no enviarlo)
+      if (!timestamp || !receivedHash) {
         this.logger.error(
-          `❌ Firma incompleta. Recibida: ${signature}`,
+          `❌ Firma incompleta. Esperado: ts y v1. Recibida: ${signature}`,
         );
         return false;
       }
 
-      // ✅ RECALCULAR HASH SEGÚN FORMATO DE MERCADO PAGO
-      // Formato: id={id},ts={timestamp}
-      const stringToSign = `id=${signId},ts=${timestamp}`;
+      // ✅ RECALCULAR HASH - FORMATO CORRECTO DE MERCADO PAGO
+      // Si viene con ID: id={id},ts={timestamp}
+      // Si viene sin ID: ts={timestamp}
+      const stringToSign = signId ? `id=${signId},ts=${timestamp}` : `ts=${timestamp}`;
+
+      this.logger.debug(`🔍 String a firmar: ${stringToSign}`);
+      this.logger.debug(`🔐 Secret: ${webhookSecret.substring(0, 10)}...`);
+
       const expectedHash = crypto
         .createHmac('sha256', webhookSecret)
         .update(stringToSign)
@@ -91,7 +97,7 @@ export class WebhooksService {
         this.logger.log(`✅ Firma validada correctamente`);
       } else {
         this.logger.warn(
-          `⚠️ Firma NO coincide.\n  Esperada: ${expectedHash}\n  Recibida: ${receivedHash}`,
+          `⚠️ Firma NO coincide.\n  String: ${stringToSign}\n  Esperada: ${expectedHash}\n  Recibida: ${receivedHash}`,
         );
       }
 
