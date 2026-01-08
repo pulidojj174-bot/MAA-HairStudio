@@ -27,7 +27,7 @@ export class WebhooksService {
     private readonly configService: ConfigService,
   ) {}
 
-  // ✅ VALIDAR FIRMA DEL WEBHOOK - FORMATO CORRECTO DE MERCADO PAGO
+  // ✅ VALIDAR FIRMA DEL WEBHOOK - FORMATO CORRECTO MERCADO PAGO v2
   async validateWebhookSignature(
     payload: any,
     signature: string,
@@ -46,9 +46,7 @@ export class WebhooksService {
 
       // ✅ EN DESARROLLO, BYPASS PARA TESTING
       if (nodeEnv === 'development') {
-        this.logger.warn(
-          `⚠️ DESARROLLO: Validación de firma deshabilitada`,
-        );
+        this.logger.warn(`⚠️ DESARROLLO: Validación de firma deshabilitada`);
         return true;
       }
 
@@ -57,7 +55,7 @@ export class WebhooksService {
         return false;
       }
 
-      // ✅ PARSEAR FIRMA: "ts=...,v1=..." o "id=...,ts=...,v1=..."
+      // ✅ PARSEAR FIRMA: "ts=...,v1=..."
       const signatureParts = signature.split(',');
       const signatureData: any = {};
 
@@ -68,9 +66,8 @@ export class WebhooksService {
         }
       }
 
-      const { id: signId, ts: timestamp, v1: receivedHash } = signatureData;
+      const { ts: timestamp, v1: receivedHash } = signatureData;
 
-      // ⚠️ timestamp es REQUERIDO, id es OPCIONAL (Mercado Pago puede no enviarlo)
       if (!timestamp || !receivedHash) {
         this.logger.error(
           `❌ Firma incompleta. Esperado: ts y v1. Recibida: ${signature}`,
@@ -78,14 +75,29 @@ export class WebhooksService {
         return false;
       }
 
-      // ✅ RECALCULAR HASH - FORMATO CORRECTO DE MERCADO PAGO
-      // Si viene con ID: id={id},ts={timestamp}
-      // Si viene sin ID: ts={timestamp}
-      const stringToSign = signId ? `id=${signId},ts=${timestamp}` : `ts=${timestamp}`;
+      // ✅ OBTENER data.id DEL PAYLOAD
+      const dataId = payload.data?.id || payload.id;
+
+      if (!dataId) {
+        this.logger.warn(
+          `⚠️ No se encontró data.id en el payload, usando solo timestamp`,
+        );
+      }
+
+      // ✅ CONSTRUIR STRING A FIRMAR SEGÚN MERCADO PAGO
+      // Template: id:[data.id];request-id:[x-request-id];ts:[ts];
+      let stringToSign = '';
+      if (dataId) {
+        stringToSign = `id:${dataId};request-id:${requestId};ts:${timestamp};`;
+      } else {
+        // Si no hay data.id, intentar con solo timestamp
+        stringToSign = `request-id:${requestId};ts:${timestamp};`;
+      }
 
       this.logger.debug(`🔍 String a firmar: ${stringToSign}`);
       this.logger.debug(`🔐 Secret: ${webhookSecret.substring(0, 10)}...`);
 
+      // ✅ CALCULAR HMAC-SHA256
       const expectedHash = crypto
         .createHmac('sha256', webhookSecret)
         .update(stringToSign)
@@ -94,16 +106,19 @@ export class WebhooksService {
       const isValid = expectedHash === receivedHash;
 
       if (isValid) {
-        this.logger.log(`✅ Firma validada correctamente`);
+        this.logger.log(
+          `✅ Firma validada correctamente para data.id: ${dataId}`,
+        );
       } else {
         this.logger.warn(
-          `⚠️ Firma NO coincide.\n  String: ${stringToSign}\n  Esperada: ${expectedHash}\n  Recibida: ${receivedHash}`,
+          `⚠️ Firma NO coincide.\n  Data ID: ${dataId}\n  Request ID: ${requestId}\n  TS: ${timestamp}\n  String: ${stringToSign}\n  Esperada: ${expectedHash}\n  Recibida: ${receivedHash}`,
         );
       }
 
       return isValid;
     } catch (error) {
       this.logger.error(`❌ Error validando firma: ${error.message}`);
+      this.logger.error(`Stack: ${error.stack}`);
       return false;
     }
   }
