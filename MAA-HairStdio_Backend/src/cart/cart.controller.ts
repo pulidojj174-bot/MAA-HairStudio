@@ -130,13 +130,14 @@ export class CartController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) {
-    // Este método se implementaría en el service
-    return {
-      success: true,
-      message: 'Funcionalidad en desarrollo',
-      data: {
-        note: 'Este endpoint estará disponible en la próxima versión',
-      },
-    };
+    return await this.cartService.getAbandonedCarts(hours, page, limit);
+  }
+
+  // ✅ ENDPOINT PARA ADMINS - Estadísticas de abandono
+  @Get('stats/abandonment')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async getAbandonmentStats() {
+    return await this.cartService.getAbandonmentStats();
   }
 }

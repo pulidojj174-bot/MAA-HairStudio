@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, QueryRunner, DataSource } from 'typeorm';
+import { Repository, QueryRunner, DataSource, LessThan } from 'typeorm';
 import { Cart } from './cart.entity';
 import { CartItem } from './cart-item.entity';
 import { ProductsService } from '../products/products.service';
@@ -18,6 +18,7 @@ import {
   CartSummary,
   CartActionResponse,
 } from './interfaces/PaginatedCartResponse';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class CartService {
@@ -496,6 +497,169 @@ export class CartService {
       );
       throw new BadRequestException('Error al validar disponibilidad del carrito');
     }
+  }
+
+  // ✅ OBTENER CARRITOS ABANDONADOS (para admins)
+  async getAbandonedCarts(
+    hours: number = 24,
+    page: number = 1,
+    limit: number = 20,
+  ) {
+    try {
+      const thresholdDate = new Date();
+      thresholdDate.setHours(thresholdDate.getHours() - hours);
+
+      const [carts, total] = await this.cartRepository.findAndCount({
+        where: {
+          status: 'abandoned',
+          lastActivityAt: LessThan(thresholdDate),
+        },
+        relations: ['user', 'items', 'items.product'],
+        order: { lastActivityAt: 'DESC' },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+
+      const cartsWithSummary = await Promise.all(
+        carts.map(async (cart) => {
+          const summary = await this.calculateCartSummary(cart.id);
+          return {
+            id: cart.id,
+            userId: cart.userId,
+            userEmail: cart.user?.email,
+            userName: cart.user?.name,
+            status: cart.status,
+            totalAmount: summary.totalAmount,
+            totalItems: summary.totalItems,
+            lastActivityAt: cart.lastActivityAt,
+            createdAt: cart.createdAt,
+            abandonedSince: this.getTimeSinceAbandonment(cart.lastActivityAt),
+            items: cart.items.map(item => ({
+              productId: item.productId,
+              productName: item.product?.name,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+            })),
+          };
+        }),
+      );
+
+      return {
+        success: true,
+        message: 'Carritos abandonados obtenidos',
+        data: cartsWithSummary,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hoursThreshold: hours,
+        },
+        stats: {
+          totalAbandonedCarts: total,
+          potentialRevenue: cartsWithSummary.reduce((sum, c) => sum + c.totalAmount, 0),
+        },
+      };
+    } catch (error) {
+      this.logger.error('Error al obtener carritos abandonados:', error);
+      throw new BadRequestException('Error al obtener carritos abandonados');
+    }
+  }
+
+  // ✅ MARCAR CARRITOS COMO ABANDONADOS (Cron Job)
+  @Cron(CronExpression.EVERY_HOUR)
+  async markAbandonedCarts() {
+    try {
+      const abandonThreshold = new Date();
+      abandonThreshold.setHours(abandonThreshold.getHours() - 24); // 24 horas de inactividad
+
+      const result = await this.cartRepository
+        .createQueryBuilder()
+        .update(Cart)
+        .set({ status: 'abandoned' })
+        .where('status = :activeStatus', { activeStatus: 'active' })
+        .andWhere('lastActivityAt < :threshold', { threshold: abandonThreshold })
+        .andWhere('totalItems > 0') // Solo carritos con productos
+        .execute();
+
+      const affectedCount = result.affected ?? 0;
+      if (affectedCount > 0) {
+        this.logger.log(`🛒 ${affectedCount} carritos marcados como abandonados`);
+      }
+
+      return affectedCount;
+    } catch (error) {
+      this.logger.error('Error al marcar carritos abandonados:', error);
+    }
+  }
+
+  // ✅ MARCAR CARRITO COMO CONVERTIDO (cuando se crea una orden)
+  async markCartAsConverted(userId: string): Promise<void> {
+    try {
+      await this.cartRepository.update(
+        { userId },
+        { status: 'converted' },
+      );
+      this.logger.log(`✅ Carrito del usuario ${userId} marcado como convertido`);
+    } catch (error) {
+      this.logger.error(`Error al marcar carrito como convertido: ${error.message}`);
+    }
+  }
+
+  // ✅ REACTIVAR CARRITO ABANDONADO
+  async reactivateCart(userId: string): Promise<Cart> {
+    const cart = await this.cartRepository.findOne({
+      where: { userId },
+    });
+
+    if (cart && cart.status === 'abandoned') {
+      cart.status = 'active';
+      cart.lastActivityAt = new Date();
+      await this.cartRepository.save(cart);
+      this.logger.log(`🔄 Carrito del usuario ${userId} reactivado`);
+    }
+
+    return this.getOrCreateCart(userId);
+  }
+
+  // ✅ OBTENER ESTADÍSTICAS DE ABANDONO
+  async getAbandonmentStats() {
+    const stats = await this.cartRepository
+      .createQueryBuilder('cart')
+      .select('cart.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect('SUM(cart.totalAmount)', 'totalValue')
+      .groupBy('cart.status')
+      .getRawMany();
+
+    const abandonedCount = stats.find(s => s.status === 'abandoned')?.count || 0;
+    const convertedCount = stats.find(s => s.status === 'converted')?.count || 0;
+    const totalCarts = stats.reduce((sum, s) => sum + parseInt(s.count), 0);
+    
+    return {
+      success: true,
+      data: {
+        byStatus: stats,
+        abandonmentRate: totalCarts > 0 
+          ? ((abandonedCount / totalCarts) * 100).toFixed(2) + '%' 
+          : '0%',
+        conversionRate: totalCarts > 0 
+          ? ((convertedCount / totalCarts) * 100).toFixed(2) + '%' 
+          : '0%',
+        potentialLostRevenue: stats.find(s => s.status === 'abandoned')?.totalValue || 0,
+      },
+    };
+  }
+
+  // Helper privado
+  private getTimeSinceAbandonment(lastActivityAt: Date): string {
+    const now = new Date();
+    const diff = now.getTime() - lastActivityAt.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) return `${days} día(s)`;
+    return `${hours} hora(s)`;
   }
 
   // ✅ MÉTODOS PRIVADOS AUXILIARES
