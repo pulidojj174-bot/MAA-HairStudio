@@ -5,6 +5,7 @@ export interface MercadoPagoPreferenceItem {
   unit_price: number;
   description?: string;
   picture_url?: string;
+  category_id?: string; // ✅ NUEVO: Categoría del item para mejorar aprobación de pagos
 }
 
 export interface MercadoPagoPreference {

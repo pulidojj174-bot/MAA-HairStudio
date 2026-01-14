@@ -84,16 +84,8 @@ export class PaymentsService {
         unit_price: Math.round(Number(item.unitPrice)),
         description: `${item.productBrand || ''} - ${item.productVolume || ''}`,
         picture_url: item.productImage || '',
+        category_id: 'beauty', // ✅ Categoría para productos de belleza/cuidado del cabello
       }));
-
-      // 5. Agregar impuestos como item adicional
-      items.push({
-        title: 'Impuestos (IVA 21%)',
-        quantity: 1,
-        unit_price: Math.round(Number(order.tax)),
-        description: 'Impuesto al Valor Agregado',
-        picture_url: '',
-      });
 
       // 6. Construir preference
       const preference: MercadoPagoPreference = {
