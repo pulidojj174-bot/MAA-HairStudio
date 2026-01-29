@@ -114,8 +114,8 @@ export class Payment {
   @Column({ type: 'timestamptz', nullable: true })
   approvedAt: Date;
 
-  @Column({ type: 'uuid', nullable: true })
-  approvedBy: string; // ID del webhook que procesó
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  approvedBy: string; // ID del pago de Mercado Pago que procesó el webhook
 
   @Column({ type: 'timestamptz', nullable: true })
   refundedAt: Date;
