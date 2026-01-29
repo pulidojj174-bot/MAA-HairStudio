@@ -130,6 +130,7 @@ export class WebhooksController {
                                    (action && action.startsWith('merchant_order.'));
 
       if (isPaymentEvent) {
+        // Para payment: el ID está en data.id o en resource
         const paymentId = payload.data?.id || this.extractPaymentId(payload.resource);
 
         if (!paymentId) {
@@ -145,19 +146,24 @@ export class WebhooksController {
         await this.webhooksService.processPaymentWebhook(paymentId);
         
       } else if (isMerchantOrderEvent) {
-        const orderId = payload.data?.id || this.extractOrderId(payload.resource);
+        // Para merchant_order: el ID puede estar en:
+        // - payload.id (nuevo formato topic_merchant_order_wh)
+        // - payload.data.id (formato antiguo)
+        // - payload.resource (formato IPN antiguo)
+        const merchantOrderId = payload.id || payload.data?.id || this.extractOrderId(payload.resource);
 
-        if (!orderId) {
-          this.logger.error('❌ No se pudo extraer Order ID del webhook');
+        if (!merchantOrderId) {
+          this.logger.error('❌ No se pudo extraer Merchant Order ID del webhook');
+          this.logger.debug(`📦 Payload keys: ${Object.keys(payload).join(', ')}`);
           return {
             success: false,
-            message: 'Order ID no encontrado en el payload',
+            message: 'Merchant Order ID no encontrado en el payload',
             requestId,
           };
         }
 
-        this.logger.log(`📦 Procesando webhook de merchant order: ${orderId}`);
-        await this.webhooksService.processMerchantOrderWebhook(orderId);
+        this.logger.log(`📦 Procesando webhook de merchant order: ${merchantOrderId}`);
+        await this.webhooksService.processMerchantOrderWebhook(String(merchantOrderId));
         
       } else {
         this.logger.warn(`⚠️ Tipo de webhook no reconocido: topic=${topic}, action=${action}`);
