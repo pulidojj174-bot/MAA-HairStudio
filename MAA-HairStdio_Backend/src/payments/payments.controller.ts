@@ -30,13 +30,16 @@ interface AuthRequest extends Request {
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
-  // ✅ CREAR PREFERENCE DE PAGO
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RUTAS ESPECÍFICAS PRIMERO (sin parámetros dinámicos)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ✅ 1. CREAR PREFERENCE DE PAGO
   @Post('create-preference')
   async createPaymentPreference(
     @Body() createPaymentDto: CreatePaymentDto,
     @Request() req: AuthRequest,
   ): Promise<PaymentResponseDto> {
-    // Validar que el usuario es el dueño de la orden
     if (!createPaymentDto.orderId) {
       throw new BadRequestException('Order ID es requerido');
     }
@@ -46,7 +49,7 @@ export class PaymentsController {
     );
   }
 
-  // ✅ OBTENER HISTORIAL DE PAGOS DEL USUARIO
+  // ✅ 2. OBTENER HISTORIAL DE PAGOS DEL USUARIO
   @Get('history')
   async getPaymentHistory(
     @Request() req: AuthRequest,
@@ -60,69 +63,11 @@ export class PaymentsController {
     );
   }
 
-  // ✅ BUSCAR PAGO POR ORDER ID
-  @Get('order/:orderId')
-  async getPaymentByOrderId(
-    @Param('orderId', ParseUUIDPipe) orderId: string,
-    @Request() req: AuthRequest,
-  ) {
-    const payment = await this.paymentsService.findPaymentByOrderId(orderId);
-    
-    if (!payment) {
-      throw new BadRequestException('No se encontró pago para esta orden');
-    }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RUTAS CON PREFIJO ESPECÍFICO + PARÁMETRO
+  // ═══════════════════════════════════════════════════════════════════════════
 
-    // Verificar que el pago pertenece al usuario
-    if (payment.user.id !== req.user.id) {
-      throw new BadRequestException('No tienes acceso a este pago');
-    }
-
-    return {
-      success: true,
-      message: 'Pago obtenido exitosamente',
-      data: payment,
-    };
-  }
-
-  // ✅ SINCRONIZAR PAGO CON MERCADO PAGO
-  @Patch(':paymentId/sync')
-  async syncPayment(
-    @Param('paymentId', ParseUUIDPipe) paymentId: string,
-    @Request() req: AuthRequest,
-  ) {
-    // Verificar que el pago pertenece al usuario
-    const payment = await this.paymentsService.getPaymentDetails(
-      paymentId,
-      req.user.id,
-    );
-
-    if (!payment) {
-      throw new BadRequestException('Pago no encontrado o no autorizado');
-    }
-
-    return await this.paymentsService.syncPaymentWithMercadoPago(paymentId);
-  }
-
-  // ✅ CANCELAR PAGO (antes de ser aprobado)
-  @Patch(':paymentId/cancel')
-  async cancelPayment(
-    @Param('paymentId', ParseUUIDPipe) paymentId: string,
-    @Request() req: AuthRequest,
-  ) {
-    // Verificar que el pago pertenece al usuario
-    const payment = await this.paymentsService.getPaymentDetails(
-      paymentId,
-      req.user.id,
-    );
-
-    if (!payment) {
-      throw new BadRequestException('Pago no encontrado o no autorizado');
-    }
-
-    return await this.paymentsService.cancelPayment(paymentId);
-  }
-
-  // ✅ ADMIN: BUSCAR PAGOS EN MERCADO PAGO
+  // ✅ 3. ADMIN: BUSCAR PAGOS EN MERCADO PAGO
   @Get('admin/search/:externalReference')
   @UseGuards(RolesGuard)
   @Roles('admin')
@@ -141,16 +86,30 @@ export class PaymentsController {
     };
   }
 
-  // ✅ OBTENER DETALLES DE UN PAGO (debe ir al final para no interferir con rutas específicas)
-  @Get(':paymentId')
-  async getPaymentDetails(
-    @Param('paymentId', ParseUUIDPipe) paymentId: string,
+  // ✅ 4. BUSCAR PAGO POR ORDER ID
+  @Get('order/:orderId')
+  async getPaymentByOrderId(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
     @Request() req: AuthRequest,
   ) {
-    return await this.paymentsService.getPaymentDetails(paymentId, req.user.id);
+    const payment = await this.paymentsService.findPaymentByOrderId(orderId);
+    
+    if (!payment) {
+      throw new BadRequestException('No se encontró pago para esta orden');
+    }
+
+    if (payment.user.id !== req.user.id) {
+      throw new BadRequestException('No tienes acceso a este pago');
+    }
+
+    return {
+      success: true,
+      message: 'Pago obtenido exitosamente',
+      data: payment,
+    };
   }
 
-  // ✅ NUEVO ENDPOINT: Verificar estado del pago
+  // ✅ 5. VERIFICAR ESTADO DEL PAGO (DEBE IR ANTES DE :paymentId)
   @Get('verify/:orderId')
   async verifyPayment(
     @Param('orderId', ParseUUIDPipe) orderId: string,
@@ -166,7 +125,6 @@ export class PaymentsController {
       };
     }
 
-    // Verificar que el usuario es el dueño
     if (payment.user.id !== req.user.id) {
       throw new ForbiddenException('No tienes acceso a este pago');
     }
@@ -178,5 +136,54 @@ export class PaymentsController {
       order: payment.order,
       data: payment,
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RUTAS CON PARÁMETRO DINÁMICO (deben ir al final)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ✅ 6. SINCRONIZAR PAGO CON MERCADO PAGO
+  @Patch(':paymentId/sync')
+  async syncPayment(
+    @Param('paymentId', ParseUUIDPipe) paymentId: string,
+    @Request() req: AuthRequest,
+  ) {
+    const payment = await this.paymentsService.getPaymentDetails(
+      paymentId,
+      req.user.id,
+    );
+
+    if (!payment) {
+      throw new BadRequestException('Pago no encontrado o no autorizado');
+    }
+
+    return await this.paymentsService.syncPaymentWithMercadoPago(paymentId);
+  }
+
+  // ✅ 7. CANCELAR PAGO (antes de ser aprobado)
+  @Patch(':paymentId/cancel')
+  async cancelPayment(
+    @Param('paymentId', ParseUUIDPipe) paymentId: string,
+    @Request() req: AuthRequest,
+  ) {
+    const payment = await this.paymentsService.getPaymentDetails(
+      paymentId,
+      req.user.id,
+    );
+
+    if (!payment) {
+      throw new BadRequestException('Pago no encontrado o no autorizado');
+    }
+
+    return await this.paymentsService.cancelPayment(paymentId);
+  }
+
+  // ✅ 8. OBTENER DETALLES DE UN PAGO (RUTA GENÉRICA - SIEMPRE AL FINAL)
+  @Get(':paymentId')
+  async getPaymentDetails(
+    @Param('paymentId', ParseUUIDPipe) paymentId: string,
+    @Request() req: AuthRequest,
+  ) {
+    return await this.paymentsService.getPaymentDetails(paymentId, req.user.id);
   }
 }
