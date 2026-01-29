@@ -179,7 +179,7 @@ export class PaymentsService {
   async processPaymentWebhook(mercadoPagoPaymentId: string): Promise<void> {
     try {
       this.logger.log(
-        `🔔 Procesando webhook para pago: ${mercadoPagoPaymentId}`,
+        `🔔 Procesando webhook para pago MP: ${mercadoPagoPaymentId}`,
       );
 
       // 1. Obtener datos del pago desde Mercado Pago
@@ -190,17 +190,38 @@ export class PaymentsService {
         throw new NotFoundException('Pago no encontrado en Mercado Pago');
       }
 
-      // 2. Buscar registro de pago local
+      this.logger.log(
+        `📋 Datos de MP - Status: ${paymentData.status}, External Ref: ${paymentData.external_reference}`,
+      );
+
+      // 2. Buscar registro de pago local por external_reference (orderId)
+      // El external_reference es el orderId que enviamos cuando creamos la preference
       let payment = await this.paymentRepository.findOne({
-        where: { mercadoPagoPaymentId },
+        where: { order: { id: paymentData.external_reference } },
         relations: ['order', 'user'],
       });
 
+      // Si no encuentra por order, intentar buscar por mercadoPagoPaymentId (preference id)
+      if (!payment) {
+        payment = await this.paymentRepository.findOne({
+          where: { mercadoPagoPaymentId },
+          relations: ['order', 'user'],
+        });
+      }
+
       if (!payment) {
         this.logger.warn(
-          `⚠️ Pago no encontrado localmente: ${mercadoPagoPaymentId}`,
+          `⚠️ Pago no encontrado localmente para order: ${paymentData.external_reference} ni MP ID: ${mercadoPagoPaymentId}`,
         );
         return;
+      }
+
+      // ✅ Actualizar el mercadoPagoPaymentId con el ID real del pago (no el de la preference)
+      if (payment.mercadoPagoPaymentId !== mercadoPagoPaymentId) {
+        this.logger.log(
+          `🔄 Actualizando mercadoPagoPaymentId: ${payment.mercadoPagoPaymentId} → ${mercadoPagoPaymentId}`,
+        );
+        payment.mercadoPagoPaymentId = mercadoPagoPaymentId;
       }
 
       // 3. Validar idempotencia (ya fue procesado)
