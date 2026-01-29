@@ -40,8 +40,11 @@ export class Payment {
   user: User;
 
   // ✅ INFORMACIÓN DE MERCADO PAGO
-  @Column({ type: 'varchar', length: 255, unique: true })
-  mercadoPagoPaymentId: string;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  preferenceId: string; // ID de la preference creada inicialmente
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  mercadoPagoPaymentId: string; // ID real del pago (viene en el webhook)
 
   @Column({ type: 'varchar', length: 255, unique: true })
   idempotencyKey: string;

@@ -135,7 +135,8 @@ export class PaymentsService {
       const payment = this.paymentRepository.create({
         order,
         user: order.user,
-        mercadoPagoPaymentId: preferenceResponse.id,
+        preferenceId: preferenceResponse.id, // ID de la preference
+        // mercadoPagoPaymentId se actualizará cuando llegue el webhook con el ID real
         idempotencyKey,
         amount: order.total,
         currency: 'ARS',
@@ -147,7 +148,7 @@ export class PaymentsService {
 
       await this.paymentRepository.save(payment);
 
-      // ✅ ACTUALIZAR LA ORDEN CON EL ID DEL PAGO
+      // ✅ ACTUALIZAR LA ORDEN CON EL ID DE LA PREFERENCE
       order.mercadoPagoPaymentId = preferenceResponse.id;
       await this.orderRepository.save(order);
 
@@ -201,12 +202,69 @@ export class PaymentsService {
         relations: ['order', 'user'],
       });
 
-      // Si no encuentra por order, intentar buscar por mercadoPagoPaymentId (preference id)
+      // Si no encuentra por order, intentar buscar por preferenceId o mercadoPagoPaymentId
+      if (!payment) {
+        payment = await this.paymentRepository.findOne({
+          where: { preferenceId: mercadoPagoPaymentId },
+          relations: ['order', 'user'],
+        });
+      }
+
       if (!payment) {
         payment = await this.paymentRepository.findOne({
           where: { mercadoPagoPaymentId },
           relations: ['order', 'user'],
         });
+      }
+
+      // ✅ NUEVO: Si no existe el pago pero sí la orden, crear el pago automáticamente
+      if (!payment && paymentData.external_reference) {
+        this.logger.warn(
+          `⚠️ Pago no encontrado localmente. Intentando crear desde webhook...`,
+        );
+
+        // Buscar la orden
+        const order = await this.orderRepository.findOne({
+          where: { id: paymentData.external_reference },
+          relations: ['user'],
+        });
+
+        if (order) {
+          this.logger.log(
+            `📦 Orden encontrada: ${order.orderNumber}. Creando pago desde webhook...`,
+          );
+
+          // Crear el pago automáticamente
+          payment = this.paymentRepository.create({
+            order,
+            user: order.user,
+            mercadoPagoPaymentId: mercadoPagoPaymentId,
+            idempotencyKey: `webhook-${mercadoPagoPaymentId}-${Date.now()}`,
+            amount: paymentData.transaction_amount || order.total,
+            currency: paymentData.currency_id || 'ARS',
+            paymentMethod: this.mapPaymentMethod(paymentData.payment_method_id),
+            status: paymentData.status,
+            statusDetail: paymentData.status_detail,
+            mercadoPagoMetadata: paymentData,
+            webhookReceivedAt: new Date(),
+          });
+
+          await this.paymentRepository.save(payment);
+          this.logger.log(
+            `✅ Pago creado automáticamente desde webhook: ${payment.id}`,
+          );
+
+          // Recargar con relaciones
+          payment = await this.paymentRepository.findOne({
+            where: { id: payment.id },
+            relations: ['order', 'user'],
+          });
+        } else {
+          this.logger.error(
+            `❌ Orden no encontrada: ${paymentData.external_reference}. No se puede crear el pago.`,
+          );
+          return;
+        }
       }
 
       if (!payment) {
