@@ -168,15 +168,38 @@ export class WebhooksService {
   }
 
   // ✅ PROCESAR WEBHOOK DE MERCHANT ORDER
-  async processMerchantOrderWebhook(orderId: string): Promise<void> {
+  async processMerchantOrderWebhook(merchantOrderId: string): Promise<void> {
     try {
-      this.logger.log(`🔔 Procesando webhook de merchant order: ${orderId}`);
-      // TODO: Implementar lógica específica para merchant orders
+      this.logger.log(`🔔 Procesando webhook de merchant order: ${merchantOrderId}`);
+      
+      // Obtener datos del merchant_order desde Mercado Pago
+      const merchantOrderData = await this.getMerchantOrderData(merchantOrderId);
+      
+      if (!merchantOrderData) {
+        this.logger.warn(`⚠️ Merchant order ${merchantOrderId} no encontrado en MP`);
+        return;
+      }
+
+      this.logger.log(
+        `📋 Merchant Order - Status: ${merchantOrderData.status}, External Ref: ${merchantOrderData.external_reference}`,
+      );
+
+      // Si hay pagos asociados, procesarlos
+      if (merchantOrderData.payments && merchantOrderData.payments.length > 0) {
+        for (const payment of merchantOrderData.payments) {
+          if (payment.status === 'approved') {
+            this.logger.log(`💳 Procesando pago aprobado del merchant order: ${payment.id}`);
+            await this.paymentsService.processPaymentWebhook(String(payment.id));
+          }
+        }
+      }
+
+      this.logger.log(`✅ Merchant order ${merchantOrderId} procesado`);
     } catch (error) {
       this.logger.error(
         `❌ Error procesando webhook de merchant order: ${error.message}`,
       );
-      throw error;
+      // No lanzar error para devolver 200 OK a MP
     }
   }
 
@@ -216,6 +239,35 @@ export class WebhooksService {
     } catch (error) {
       this.logger.error(`❌ Error verificando estado: ${error.message}`);
       throw error;
+    }
+  }
+
+  // ✅ OBTENER DATOS DEL MERCHANT ORDER DESDE MERCADO PAGO
+  private async getMerchantOrderData(merchantOrderId: string): Promise<any> {
+    try {
+      const accessToken = this.configService.get<string>('MERCADO_PAGO_ACCESS_TOKEN');
+      
+      const response = await fetch(
+        `https://api.mercadopago.com/merchant_orders/${merchantOrderId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        this.logger.error(`❌ Error obteniendo merchant order: ${response.status}`);
+        return null;
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      this.logger.error(`❌ Error en getMerchantOrderData: ${error.message}`);
+      return null;
     }
   }
 }

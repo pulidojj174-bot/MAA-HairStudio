@@ -61,12 +61,16 @@ export class WebhooksController {
       const topic = payload.topic || payload.type;
       const action = payload.action; // Nuevo formato de MP: "payment.created", "payment.updated"
 
+      this.logger.log(`🔍 Analizando webhook - Topic: ${topic}, Action: ${action}`);
+
       // Detectar si es un evento de pago por topic O por action
       const isPaymentEvent = topic === 'payment' || 
-                             (action && action.startsWith('payment.'));
+                             (action && action.startsWith('payment.')) ||
+                             topic?.includes('payment');
       
-      // Detectar si es un evento de merchant_order
+      // Detectar si es un evento de merchant_order (incluye nuevo formato topic_merchant_order_wh)
       const isMerchantOrderEvent = topic === 'merchant_order' || 
+                                   topic?.includes('merchant_order') ||
                                    (action && action.startsWith('merchant_order.'));
 
       if (isPaymentEvent) {
