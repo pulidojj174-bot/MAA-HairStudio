@@ -75,7 +75,12 @@ export class WebhooksController {
 
         if (!paymentId) {
           this.logger.error('❌ No se pudo extraer Payment ID del webhook');
-          throw new BadRequestException('Payment ID no encontrado');
+          // ⚠️ NO lanzar excepción - devolver 200 OK para que MP no reintente
+          return {
+            success: false,
+            message: 'Payment ID no encontrado en el payload',
+            requestId,
+          };
         }
 
         this.logger.log(`💳 Procesando webhook de pago (${action || topic}): ${paymentId}`);
@@ -86,11 +91,18 @@ export class WebhooksController {
 
         if (!orderId) {
           this.logger.error('❌ No se pudo extraer Order ID del webhook');
-          throw new BadRequestException('Order ID no encontrado');
+          // ⚠️ NO lanzar excepción - devolver 200 OK para que MP no reintente
+          return {
+            success: false,
+            message: 'Order ID no encontrado en el payload',
+            requestId,
+          };
         }
 
         this.logger.log(`📦 Procesando webhook de merchant order: ${orderId}`);
         await this.webhooksService.processMerchantOrderWebhook(orderId);
+      } else {
+        this.logger.warn(`⚠️ Tipo de webhook no reconocido: topic=${topic}, action=${action}`);
       }
 
       this.logger.log(`✅ Webhook procesado exitosamente: ${requestId}`);
@@ -101,9 +113,18 @@ export class WebhooksController {
         requestId,
       };
     } catch (error) {
+      // ⚠️ IMPORTANTE: Siempre devolver 200 OK a Mercado Pago
+      // Si devolvemos 4xx o 5xx, MP seguirá reintentando el webhook
       this.logger.error(`❌ Error procesando webhook: ${error.message}`);
       this.logger.error(`Stack: ${error.stack}`);
-      throw error;
+      
+      // Devolver 200 OK con el error en el body (para logging)
+      return {
+        success: false,
+        message: `Error procesado: ${error.message}`,
+        requestId,
+        error: error.message,
+      };
     }
   }
 

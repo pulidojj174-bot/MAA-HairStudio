@@ -188,7 +188,11 @@ export class PaymentsService {
         await this.getMercadoPagoPaymentData(mercadoPagoPaymentId);
 
       if (!paymentData) {
-        throw new NotFoundException('Pago no encontrado en Mercado Pago');
+        // ⚠️ NO lanzar NotFoundException - causa 404 y MP lo marca como falla
+        this.logger.error(
+          `❌ Pago ${mercadoPagoPaymentId} no encontrado en Mercado Pago API. Ignorando webhook.`,
+        );
+        return; // Retornar sin error para que MP reciba 200 OK
       }
 
       this.logger.log(
