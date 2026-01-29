@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Payment, PaymentMethodEnum } from './entities/payment.entity';
 import { PaymentTransaction } from './entities/payment-transaction.entity';
-import { Order, OrderStatus } from '../orders/orders.entity';
+import { Order, OrderStatus, PaymentStatus } from '../orders/orders.entity';
 import { CreatePaymentDto, PaymentResponseDto } from './dto/create-payment.dto';
 import { MercadoPagoPreferenceItem } from './interfaces/mercado-pago.interface';
 import {
@@ -336,7 +336,7 @@ export class PaymentsService {
       // 1. Actualizar estado de la orden
       const order = payment.order;
       order.status = OrderStatus.PAID;
-      order.paymentStatus = 'paid' as any;
+      order.paymentStatus = PaymentStatus.APPROVED;
       order.updatedAt = new Date();
 
       await this.orderRepository.save(order);
