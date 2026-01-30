@@ -67,12 +67,20 @@ export class WebhooksController {
   }
 
   // ✅ 3. VERIFICAR ESTADO DE PAGO - Ruta con parámetro
+  // Acepta UUID de orden interna o ID numérico de Mercado Pago
   @Get('mercado-pago/verify/:orderId')
   async verifyPaymentStatus(
-    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Param('orderId') orderId: string,
   ) {
     try {
-      this.logger.log(`🔍 Verificando estado de pago para orden: ${orderId}`);
+      this.logger.log(`🔍 Verificando estado de pago para: ${orderId}`);
+      
+      // Detectar si es UUID o ID numérico
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+      const isNumeric = /^\d+$/.test(orderId);
+      
+      this.logger.log(`📋 Tipo de ID: ${isUUID ? 'UUID' : isNumeric ? 'Numérico MP' : 'Otro'}`);
+      
       const result = await this.webhooksService.verifyPaymentStatus(orderId);
       return result;
     } catch (error) {
