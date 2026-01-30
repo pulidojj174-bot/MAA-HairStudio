@@ -204,24 +204,54 @@ export class WebhooksService {
   }
 
   // ✅ VERIFICAR ESTADO DE PAGO (Para que el frontend verifique después de pagar)
-  async verifyPaymentStatus(orderId: string): Promise<any> {
+  // Acepta UUID de orden interna O ID numérico de Mercado Pago
+  async verifyPaymentStatus(identifier: string): Promise<any> {
     try {
-      this.logger.log(`🔍 Verificando estado de pago para orden: ${orderId}`);
+      // Detectar tipo de ID
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+      const isNumeric = /^\d+$/.test(identifier);
 
-      // Buscar el pago por order ID
-      const payment = await this.paymentsService.findPaymentByOrderId(orderId);
+      this.logger.log(`🔍 Verificando pago - ID: ${identifier} (${isUUID ? 'UUID' : isNumeric ? 'MP ID' : 'Otro'})`);
+
+      let payment: Payment | null = null;
+
+      if (isUUID) {
+        // Buscar por Order ID (UUID)
+        payment = await this.paymentsService.findPaymentByOrderId(identifier);
+      } else if (isNumeric) {
+        // Buscar por Mercado Pago Payment ID (numérico)
+        payment = await this.paymentRepository.findOne({
+          where: { mercadoPagoPaymentId: identifier },
+          relations: ['order', 'user', 'transactions'],
+        });
+        
+        // Si no encuentra por mercadoPagoPaymentId, intentar por preferenceId
+        if (!payment) {
+          payment = await this.paymentRepository.findOne({
+            where: { preferenceId: identifier },
+            relations: ['order', 'user', 'transactions'],
+          });
+        }
+      } else {
+        // Intentar como preferenceId (puede tener formato alfanumérico)
+        payment = await this.paymentRepository.findOne({
+          where: { preferenceId: identifier },
+          relations: ['order', 'user', 'transactions'],
+        });
+      }
 
       if (!payment) {
-        this.logger.warn(`⚠️ No hay pago para la orden: ${orderId}`);
+        this.logger.warn(`⚠️ No se encontró pago para: ${identifier}`);
         return {
           success: false,
-          message: 'No se encontró pago para esta orden',
+          message: 'No se encontró pago para este identificador',
           status: 'not_found',
           paymentStatus: null,
+          searchedBy: isUUID ? 'orderId' : isNumeric ? 'mercadoPagoPaymentId' : 'preferenceId',
         };
       }
 
-      this.logger.log(`✅ Pago encontrado para orden ${orderId}: ${payment.status}`);
+      this.logger.log(`✅ Pago encontrado: ${payment.id} - Estado: ${payment.status}`);
 
       return {
         success: true,
@@ -229,7 +259,9 @@ export class WebhooksService {
         status: payment.status,
         paymentStatus: payment.status,
         paymentId: payment.id,
-        orderId: orderId,
+        orderId: payment.order?.id,
+        mercadoPagoPaymentId: payment.mercadoPagoPaymentId,
+        preferenceId: payment.preferenceId,
         amount: payment.amount,
         currency: payment.currency,
         webhookProcessed: payment.webhookProcessed,
