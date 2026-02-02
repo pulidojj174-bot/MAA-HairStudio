@@ -79,12 +79,13 @@ export class PaymentsService {
 
       // 4. Preparar items para Mercado Pago
       const items = order.items.map((item) => ({
+        id: item.product?.id || item.id, // ✅ ID del producto
         title: item.productName,
         quantity: item.quantity,
         unit_price: Math.round(Number(item.unitPrice)),
-        description: `${item.productBrand || ''} - ${item.productVolume || ''}`,
+        description: `${item.productBrand || ''} - ${item.productVolume || ''}`.trim(),
         picture_url: item.productImage || '',
-        category_id: 'beauty', // ✅ Categoría para productos de belleza/cuidado del cabello
+        category_id: this.getCategoryIdForProduct(item), // ✅ Categoría dinámica
       }));
 
       // 6. Construir preference
@@ -583,6 +584,35 @@ export class PaymentsService {
     };
 
     return mapping[paymentMethodId] || PaymentMethodEnum.OTHER;
+  }
+
+  // ✅ OBTENER CATEGORY_ID PARA MERCADO PAGO (mejora tasa de aprobación)
+  private getCategoryIdForProduct(item: any): string {
+    // Categorías válidas de Mercado Pago para productos de belleza/cabello
+    // https://developers.mercadopago.com/reference/categories
+    
+    const productName = (item.productName || '').toLowerCase();
+    const productType = (item.product?.type_product || '').toLowerCase();
+    
+    // Mapeo basado en tipo de producto o nombre
+    if (productType.includes('shampoo') || productName.includes('shampoo')) {
+      return 'health_beauty_hair_care'; // Cuidado del cabello
+    }
+    if (productType.includes('tratamiento') || productName.includes('tratamiento') || productName.includes('mask')) {
+      return 'health_beauty_hair_care';
+    }
+    if (productType.includes('aceite') || productName.includes('oil') || productName.includes('aceite')) {
+      return 'health_beauty_hair_care';
+    }
+    if (productType.includes('tinte') || productName.includes('color') || productName.includes('tinte')) {
+      return 'health_beauty_hair_care';
+    }
+    if (productType.includes('styling') || productName.includes('gel') || productName.includes('cera')) {
+      return 'health_beauty_hair_care';
+    }
+    
+    // Categoría por defecto para productos de belleza
+    return 'health_beauty_hair_care';
   }
 
   // ✅ BUSCAR PAGO POR EXTERNAL REFERENCE (Order ID)
