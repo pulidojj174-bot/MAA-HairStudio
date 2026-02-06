@@ -115,7 +115,7 @@ export class PaymentsService {
         }, */
         // ❌ ELIMINAR: auto_return: 'approved' as any,
         external_reference: order.id,
-        notification_url: `${this.configService.get<string>('API_URL')}/api/v1/webhooks/mercado-pago`,
+        notification_url: this.configService.get<string>('WEBHOOK_URL'), // ✅ CORREGIDO: Usar WEBHOOK_URL directamente
         metadata: {
           order_id: order.id,
           order_number: order.orderNumber,
