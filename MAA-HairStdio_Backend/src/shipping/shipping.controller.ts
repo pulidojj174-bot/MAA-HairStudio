@@ -70,6 +70,7 @@ export class ShippingController {
       createDto.orderId,
       createDto.destinationAddressId,
       createDto.zipnovaQuoteId,
+      createDto.shippingCost,
     );
   }
 

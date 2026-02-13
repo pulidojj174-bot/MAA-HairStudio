@@ -1,4 +1,4 @@
-import { IsUUID, IsNumber, IsString, IsOptional, IsEnum, IsArray } from 'class-validator';
+import { IsUUID, IsNumber, IsString, IsOptional, IsEnum, IsArray, Min } from 'class-validator';
 import { ShippingCarrier, ShippingService } from '../entities/shipment.entity';
 
 // ✅ DTO PARA COTIZAR ENVÍO
@@ -24,6 +24,10 @@ export class CreateShippingDto {
 
   @IsString()
   zipnovaQuoteId: string; // Usar la cotización obtenida
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  shippingCost: number;
 
   @IsOptional()
   @IsString()

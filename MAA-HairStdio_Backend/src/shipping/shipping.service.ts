@@ -17,6 +17,7 @@ import {
   ZipnovaShipmentRequest,
   ZipnovaShipmentResponse,
 } from './interfaces/zipnova.interface';
+import { OrdersService } from '../orders/orders.service';
 
 @Injectable()
 export class ShippingService {
@@ -35,6 +36,7 @@ export class ShippingService {
     @InjectRepository(Address)
     private readonly addressRepository: Repository<Address>,
     private readonly configService: ConfigService,
+    private readonly ordersService: OrdersService,
   ) {
     // ✅ OBTENER CREDENCIALES DE ZIPNOVA DEL .env
     const country = this.configService.get<string>('ZIPNOVA_COUNTRY', 'ar'); // ar, cl, mx
@@ -159,9 +161,15 @@ export class ShippingService {
     orderId: string,
     destinationAddressId: string,
     zipnovaQuoteId: string,
+    shippingCost: number,
   ): Promise<any> {
     try {
       this.logger.log(`📮 Creando envío para orden: ${orderId} con quote: ${zipnovaQuoteId}`);
+
+      const safeShippingCost = Number(shippingCost);
+      if (Number.isNaN(safeShippingCost) || safeShippingCost < 0) {
+        throw new BadRequestException('Costo de envio invalido');
+      }
 
       // Obtener orden y dirección
       const order = await this.orderRepository.findOne({
@@ -239,11 +247,14 @@ export class ShippingService {
       shipment.status = ShippingStatusEnum.CONFIRMED;
       shipment.statusDescription = 'Envío confirmado y listo para retirar';
       shipment.labelUrl = zipnovaShipment.label_url;
+      shipment.shippingCost = safeShippingCost;
       shipment.estimatedDays = 5; // Por defecto
       shipment.zipnovaMetadata = zipnovaShipment;
       shipment.totalWeight = (order.items.length * 100) / 1000; // En kg
 
       const savedShipment = await this.shipmentRepository.save(shipment);
+
+      await this.ordersService.applyShippingToOrder(order.id, safeShippingCost);
 
       this.logger.log(`✅ Envío creado: ${savedShipment.id} - Tracking: ${shipment.trackingNumber}`);
 

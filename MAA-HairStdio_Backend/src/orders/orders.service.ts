@@ -18,6 +18,7 @@ import {
   CreateOrderFromCartDto, 
   UpdateOrderStatusDto 
 } from './dto/create-order.dto';
+import { UpdateShippingCostDto } from './dto/update-shipping-cost.dto';
 
 @Injectable()
 export class OrdersService {
@@ -137,13 +138,14 @@ export class OrdersService {
         return sum + (price * item.quantity);
       }, 0);
 
-      // ✅ CAMBIO: Ya no hay costo de envío adicional
       const shippingCost = 0;
       const tax = subtotal * 0.21; // IVA Argentina 21%
       const total = subtotal + tax;
 
-      // ✅ CAMBIO: Estado inicial siempre es PENDING (sin espera de costo de envío)
-      const initialStatus = OrderStatus.PENDING;
+      const isShippingCostSet = deliveryType === DeliveryType.PICKUP;
+      const initialStatus = deliveryType === DeliveryType.DELIVERY
+        ? OrderStatus.AWAITING_SHIPPING_COST
+        : OrderStatus.PENDING;
 
       // 5. Generar número de orden único
       const orderNumber = await this.generateOrderNumber();
@@ -154,13 +156,13 @@ export class OrdersService {
         user: { id: userId } as User,
         deliveryType,
         subtotal,
-        shippingCost: 0, // ✅ Siempre 0
+        shippingCost: 0,
         tax,
         total,
         status: initialStatus,
         paymentStatus: PaymentStatus.PENDING,
         notes,
-        isShippingCostSet: true, // ✅ Siempre true porque no hay costo adicional
+        isShippingCostSet,
       };
 
       // Add shippingSnapshot only if it's not null
@@ -270,10 +272,10 @@ export class OrdersService {
         data: orderWithRelations,
         meta: {
           deliveryType,
-          requiresShippingCost: false, // ✅ Siempre false
-          isReadyForPayment: true, // ✅ Siempre listo para pagar
+          requiresShippingCost: deliveryType === DeliveryType.DELIVERY,
+          isReadyForPayment: deliveryType === DeliveryType.PICKUP,
           statusDescription: deliveryType === DeliveryType.DELIVERY 
-            ? 'Orden creada. El envío será coordinado directamente con el entregador.'
+            ? 'Orden creada. Esperando costo de envio.'
             : 'Orden creada. Lista para retiro en tienda.',
         }
       };
@@ -300,6 +302,76 @@ export class OrdersService {
   // ✅ ELIMINAR: Ya no se necesita setShippingCost
   // ✅ ELIMINAR: Ya no se necesita confirmOrder
   // ✅ ELIMINAR: Ya no se necesita getOrdersAwaitingShippingCost
+
+  async applyShippingToOrder(
+    orderId: string,
+    shippingCost: number,
+    updatedByUserId?: string,
+    notes?: string,
+  ) {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['user'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Orden no encontrada');
+    }
+
+    if (order.deliveryType !== DeliveryType.DELIVERY) {
+      throw new BadRequestException('La orden no requiere envio');
+    }
+
+    if (order.paymentStatus === PaymentStatus.APPROVED) {
+      throw new BadRequestException('No se puede actualizar el envio de una orden ya pagada');
+    }
+
+    const safeShippingCost = Number(shippingCost);
+    if (Number.isNaN(safeShippingCost) || safeShippingCost < 0) {
+      throw new BadRequestException('Costo de envio invalido');
+    }
+
+    const subtotal = Number(order.subtotal);
+    const taxableBase = subtotal + safeShippingCost;
+    const tax = Number((taxableBase * 0.21).toFixed(2));
+    const total = Number((taxableBase + tax).toFixed(2));
+
+    order.shippingCost = safeShippingCost;
+    order.tax = tax;
+    order.total = total;
+    order.isShippingCostSet = true;
+    order.status = OrderStatus.SHIPPING_COST_SET;
+    order.shippingCostSetAt = new Date();
+    order.shippingCostSetBy = updatedByUserId || order.shippingCostSetBy;
+    if (notes) {
+      order.shippingNotes = notes;
+    }
+
+    return this.orderRepository.save(order);
+  }
+
+  async updateShippingCost(
+    orderId: string,
+    updateDto: UpdateShippingCostDto,
+    updatedByUserId?: string,
+  ) {
+    const updatedOrder = await this.applyShippingToOrder(
+      orderId,
+      updateDto.shippingCost,
+      updatedByUserId,
+      updateDto.notes,
+    );
+
+    if (updatedOrder.user?.password_hash) {
+      delete (updatedOrder.user as any).password_hash;
+    }
+
+    return {
+      success: true,
+      message: 'Costo de envio actualizado exitosamente',
+      data: updatedOrder,
+    };
+  }
 
   // ✅ MÉTODOS DE NOTIFICACIÓN (ACTUALIZADOS)
   private async notifyOrderCreated(order: Order) {

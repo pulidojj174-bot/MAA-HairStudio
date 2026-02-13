@@ -15,6 +15,7 @@ import {
   CreateOrderFromCartDto, 
   UpdateOrderStatusDto
 } from './dto/create-order.dto';
+import { UpdateShippingCostDto } from './dto/update-shipping-cost.dto';
 import { User } from '../users/user.entity';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/auth/roles/roles.guard';
@@ -110,6 +111,18 @@ export class OrdersController {
     @Body() updateDto: UpdateOrderStatusDto
   ) {
     return this.ordersService.updateStatus(id, updateDto);
+  }
+
+  // ✅ ACTUALIZAR COSTO DE ENVIO (ADMIN)
+  @Patch(':id/shipping-cost')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async updateShippingCost(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateDto: UpdateShippingCostDto,
+    @Request() req: AuthRequest,
+  ) {
+    return this.ordersService.updateShippingCost(id, updateDto, req.user.id);
   }
 
   // ✅ SINCRONIZAR ORDEN CON PAGO DE MERCADO PAGO
