@@ -6,11 +6,13 @@ import {
   UpdateDateColumn,
   ManyToOne,
   OneToMany,
+  OneToOne,
   Index,
 } from 'typeorm';
 import { User } from '../users/user.entity';
 import { Address } from '../address/address.entity';
 import { OrderItem } from './order-item.entity';
+import { Shipment } from '../shipping/entities/shipment.entity';
 
 export enum OrderStatus {
   PENDING = 'pending',
@@ -54,6 +56,10 @@ export class Order {
 
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true, eager: true })
   items: OrderItem[];
+
+  // ✅ RELACIÓN CON ENVÍO
+  @OneToOne(() => Shipment, (shipment) => shipment.order, { nullable: true, eager: false })
+  shipment?: Shipment;
 
   // ✅ INFORMACIÓN DE ENTREGA
   @Column({ 

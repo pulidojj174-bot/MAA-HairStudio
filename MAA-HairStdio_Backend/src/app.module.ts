@@ -19,6 +19,7 @@ import { HealthModule } from './healt/healt.module';
 import { PaymentsController } from './payments/payments.controller';
 import { PaymentsModule } from './payments/payments.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { ShippingModule } from './shipping/shipping.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -72,6 +73,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     HealthModule,
     PaymentsModule,
     WebhooksModule,
+    ShippingModule,
     /* ShippoModule, */
   ],
   controllers: [AppController, PaymentsController],
