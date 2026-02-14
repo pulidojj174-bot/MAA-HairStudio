@@ -125,43 +125,56 @@ export class ShippingService {
         }
       );
 
-      // Zipnova puede devolver los quotes en response.data.data o directamente en response.data
+      // Zipnova devuelve: { results: { standard_delivery: {...}, pickup_point: {...} }, all_results: [...] }
       const responseBody = response.data;
-      const quotes: ZipnovaQuoteResponse[] = Array.isArray(responseBody)
-        ? responseBody
-        : Array.isArray(responseBody?.data)
-          ? responseBody.data
-          : Array.isArray(responseBody?.results)
-            ? responseBody.results
-            : [];
 
       this.logger.log(`📨 Respuesta Zipnova (keys): ${JSON.stringify(Object.keys(responseBody))}`);
-      this.logger.log(`📨 Respuesta Zipnova completa: ${JSON.stringify(responseBody)}`);
 
-      if (!quotes || quotes.length === 0) {
+      // all_results es el array con TODAS las opciones
+      const allResults: any[] = Array.isArray(responseBody?.all_results)
+        ? responseBody.all_results
+        : [];
+
+      if (allResults.length === 0) {
         throw new BadRequestException({
           message: 'No hay opciones de envío disponibles para esta dirección',
           zipnovaResponse: responseBody,
         });
       }
 
-      this.logger.log(`✅ Cotizaciones obtenidas: ${quotes.length} opciones`);
+      this.logger.log(`✅ Cotizaciones obtenidas: ${allResults.length} opciones`);
 
-      // ✅ GUARDAR COTIZACIÓN EN BD (si es necesario)
-      // Se puede guardar como caché temporal
+      // Mapear la estructura real de Zipnova a nuestra respuesta
+      const options = allResults
+        .filter((r: any) => r.selectable)
+        .map((r: any) => ({
+          carrier: r.carrier?.name || 'Desconocido',
+          carrierId: r.carrier?.id,
+          carrierLogo: r.carrier?.logo,
+          serviceType: r.service_type?.code || 'standard_delivery',
+          serviceName: r.service_type?.name || 'Entrega estándar',
+          price: r.amounts?.price_incl_tax || r.amounts?.price || 0,
+          priceWithoutTax: r.amounts?.price || 0,
+          estimatedDays: r.delivery_time?.max || 0,
+          estimatedDelivery: r.delivery_time?.estimated_delivery || null,
+          tags: r.tags || [],
+          pickupPoints: r.pickup_points?.map((pp: any) => ({
+            pointId: pp.point_id,
+            description: pp.description,
+            address: `${pp.location?.street} ${pp.location?.street_number}`,
+            city: pp.location?.city,
+            zipcode: pp.location?.zipcode,
+            phone: pp.phone,
+          })) || [],
+        }));
 
       return {
         success: true,
         message: 'Cotizaciones obtenidas exitosamente',
         data: {
-          options: quotes.map((q: ZipnovaQuoteResponse) => ({
-            id: q.id,
-            carrier: q.carrier,
-            service: q.service,
-            price: q.price,
-            estimatedDays: q.estimated_days,
-            observations: q.observations,
-          })),
+          origin: responseBody.origin,
+          destination: responseBody.destination,
+          options,
         },
       };
     } catch (error) {
