@@ -151,6 +151,13 @@ export class ShippingService {
         },
       };
     } catch (error) {
+      if (error.response?.data) {
+        this.logger.error(`❌ Error cotizando envío - Zipnova respondió:`, JSON.stringify(error.response.data));
+        throw new BadRequestException({
+          message: 'Error al cotizar envío con Zipnova',
+          zipnovaError: error.response.data,
+        });
+      }
       this.logger.error(`❌ Error cotizando envío: ${error.message}`);
       throw error;
     }
@@ -272,6 +279,13 @@ export class ShippingService {
         },
       };
     } catch (error) {
+      if (error.response?.data) {
+        this.logger.error(`❌ Error creando envío - Zipnova respondió:`, JSON.stringify(error.response.data));
+        throw new BadRequestException({
+          message: 'Error al crear envío con Zipnova',
+          zipnovaError: error.response.data,
+        });
+      }
       this.logger.error(`❌ Error creando envío: ${error.message}`);
       throw error;
     }
