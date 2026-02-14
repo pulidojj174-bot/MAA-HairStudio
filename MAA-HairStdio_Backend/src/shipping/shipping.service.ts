@@ -100,7 +100,7 @@ export class ShippingService {
       const quoteRequest: ZipnovaQuoteRequest = {
         account_id: this.zipnovaAccountId,
         origin_id: this.zipnovaOriginId,
-        declared_value: order.total,
+        declared_value: Number(order.total),
         items: zipnovaItems,
         destination: {
           city: destAddress.city,
@@ -113,7 +113,7 @@ export class ShippingService {
       this.logger.log(`🚀 Enviando cotización a Zipnova: ${JSON.stringify(quoteRequest)}`);
 
       // ✅ LLAMAR A ZIPNOVA API
-      const response = await axios.post<{ data: ZipnovaQuoteResponse[] }>(
+      const response = await axios.post(
         `${this.zipnovaApiUrl}/shipments/quote`,
         quoteRequest,
         {
@@ -125,10 +125,24 @@ export class ShippingService {
         }
       );
 
-      const quotes = response.data.data;
+      // Zipnova puede devolver los quotes en response.data.data o directamente en response.data
+      const responseBody = response.data;
+      const quotes: ZipnovaQuoteResponse[] = Array.isArray(responseBody)
+        ? responseBody
+        : Array.isArray(responseBody?.data)
+          ? responseBody.data
+          : Array.isArray(responseBody?.results)
+            ? responseBody.results
+            : [];
+
+      this.logger.log(`📨 Respuesta Zipnova (keys): ${JSON.stringify(Object.keys(responseBody))}`);
+      this.logger.log(`📨 Respuesta Zipnova completa: ${JSON.stringify(responseBody)}`);
 
       if (!quotes || quotes.length === 0) {
-        throw new BadRequestException('No hay opciones de envío disponibles');
+        throw new BadRequestException({
+          message: 'No hay opciones de envío disponibles para esta dirección',
+          zipnovaResponse: responseBody,
+        });
       }
 
       this.logger.log(`✅ Cotizaciones obtenidas: ${quotes.length} opciones`);
