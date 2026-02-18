@@ -196,6 +196,7 @@ export class ShippingService {
     destinationAddressId: string,
     zipnovaQuoteId: string,
     shippingCost: number,
+    serviceType?: string,
   ): Promise<any> {
     try {
       this.logger.log(`📮 Creando envío para orden: ${orderId} con quote: ${zipnovaQuoteId}`);
@@ -223,12 +224,18 @@ export class ShippingService {
         throw new NotFoundException('Dirección de destino no encontrada');
       }
 
-      // ✅ PREPARAR REQUEST
+      // Extraer número de calle de streetAddress (ej: "Av. San Martin 1234" -> street="Av. San Martin", number="1234")
+      const streetParts = (destAddress.streetAddress || '').match(/^(.+?)\s+(\d+.*)$/);
+      const street = streetParts ? streetParts[1] : destAddress.streetAddress || 'S/N';
+      const streetNumber = streetParts ? streetParts[2] : '0';
+
+      // ✅ PREPARAR REQUEST con campos obligatorios de Zipnova
       const shipmentRequest: ZipnovaShipmentRequest = {
         account_id: this.zipnovaAccountId,
         origin_id: this.zipnovaOriginId,
-        quote_id: zipnovaQuoteId,
-        declared_value: order.total,
+        service_type: serviceType || 'standard_delivery',
+        external_id: order.orderNumber,
+        declared_value: Number(order.total),
         items: order.items.map((item: any) => ({
           sku: item.id || item.productId,
           weight: item.weight || 100,
@@ -239,20 +246,22 @@ export class ShippingService {
           quantity: item.quantity,
         })),
         destination: {
+          name: destAddress.recipientName,
+          document: '00000000', // DNI placeholder - idealmente guardar en Address
+          phone: destAddress.phone,
+          email: destAddress.email || order.user.email,
           city: destAddress.city,
           state: destAddress.province,
           zipcode: destAddress.postalCode,
-          full_name: destAddress.recipientName,
-          phone: destAddress.phone,
-          email: destAddress.email || order.user.email,
-          address: destAddress.streetAddress,
-          number: destAddress.neighborhood || '0',
+          street: street,
+          street_number: streetNumber,
           floor: destAddress.addressLine2 || undefined,
           instructions: destAddress.deliveryInstructions,
         },
-        reference: order.orderNumber,
         delivery_type: 'delivery',
       };
+
+      this.logger.log(`📦 Request a Zipnova: ${JSON.stringify(shipmentRequest)}`);
 
       // ✅ CREAR ENVÍO EN ZIPNOVA
       const response = await axios.post<ZipnovaShipmentResponse>(

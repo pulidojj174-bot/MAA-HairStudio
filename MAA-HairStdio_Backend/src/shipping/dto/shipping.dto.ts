@@ -23,11 +23,15 @@ export class CreateShippingDto {
   destinationAddressId: string;
 
   @IsString()
-  zipnovaQuoteId: string; // Usar la cotización obtenida
+  zipnovaQuoteId: string; // ID del carrier de la cotización (ej: "208" para OCA)
 
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   shippingCost: number;
+
+  @IsOptional()
+  @IsString()
+  serviceType?: string; // "standard_delivery" | "pickup_point" (default: standard_delivery)
 
   @IsOptional()
   @IsString()

@@ -70,23 +70,24 @@ export interface ZipnovaShippingOption {
 export interface ZipnovaShipmentRequest {
   account_id: string;
   origin_id: string;
-  quote_id?: string; // ID de cotización previa
+  service_type: string; // "standard_delivery" | "pickup_point" etc.
+  external_id: string; // ID externo (nuestro orderNumber)
   declared_value: number;
   items: ZipnovaShippingItem[];
   destination: {
+    name: string; // Nombre del destinatario
+    document: string; // DNI/CUIT del destinatario
+    phone: string;
+    email: string;
     city: string;
     state: string;
     zipcode: string;
-    full_name: string;
-    phone: string;
-    email: string;
-    address: string;
-    number: string;
+    street: string;
+    street_number: string;
     floor?: string;
     apartment?: string;
     instructions?: string;
   };
-  reference: string; // Referencia interna (ej: número de orden)
   delivery_type: 'delivery' | 'pickup';
 }
 

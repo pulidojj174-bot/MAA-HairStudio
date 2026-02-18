@@ -71,6 +71,7 @@ export class ShippingController {
       createDto.destinationAddressId,
       createDto.zipnovaQuoteId,
       createDto.shippingCost,
+      createDto.serviceType,
     );
   }
 
