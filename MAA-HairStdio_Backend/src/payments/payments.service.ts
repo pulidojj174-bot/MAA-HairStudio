@@ -74,6 +74,14 @@ export class PaymentsService {
         throw new BadRequestException('El total de la orden es inválido');
       }
 
+      // Validar que el costo de envío ya fue aplicado para órdenes delivery
+      if (order.deliveryType === 'delivery' && !order.isShippingCostSet) {
+        throw new BadRequestException(
+          'No se puede crear el pago: la orden de tipo delivery aún no tiene costo de envío aplicado. ' +
+          'Primero cotizá y creá el envío desde /shipping/quote y /shipping/create.'
+        );
+      }
+
       // 3. Generar idempotency key
       const idempotencyKey = `mp-${order.id}-${Date.now()}`;
 
@@ -315,8 +323,10 @@ export class PaymentsService {
 
       // 6. Marcar como procesado
       payment.webhookProcessed = true;
-      payment.approvedAt = new Date();
-      payment.approvedBy = mercadoPagoPaymentId;
+      if (paymentData.status === 'approved') {
+        payment.approvedAt = new Date();
+        payment.approvedBy = mercadoPagoPaymentId;
+      }
 
       await this.paymentRepository.save(payment);
 
@@ -334,8 +344,19 @@ export class PaymentsService {
     try {
       this.logger.log(`💰 Pago aprobado: ${payment.mercadoPagoPaymentId}`);
 
-      // 1. Actualizar estado de la orden
+      // 1. Validar que el monto pagado coincide con el total de la orden
       const order = payment.order;
+      const paidAmount = Number(payment.amount);
+      const orderTotal = Number(order.total);
+
+      if (Math.abs(paidAmount - orderTotal) > 1) {
+        this.logger.warn(
+          `⚠️ ALERTA: Monto pagado ($${paidAmount}) difiere del total de la orden ($${orderTotal}) ` +
+          `para orden ${order.orderNumber}. Diferencia: $${Math.abs(paidAmount - orderTotal)}`
+        );
+      }
+
+      // 2. Actualizar estado de la orden
       order.status = OrderStatus.PAID;
       order.paymentStatus = PaymentStatus.APPROVED;
       order.updatedAt = new Date();

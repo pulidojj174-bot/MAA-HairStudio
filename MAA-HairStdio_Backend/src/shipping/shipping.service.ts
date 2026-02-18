@@ -97,10 +97,11 @@ export class ShippingService {
       }));
 
       // ✅ PREPARAR REQUEST A ZIPNOVA
+      // declared_value = valor de los productos (subtotal), no el total con impuestos
       const quoteRequest: ZipnovaQuoteRequest = {
         account_id: this.zipnovaAccountId,
         origin_id: this.zipnovaOriginId,
-        declared_value: Number(order.total),
+        declared_value: Number(order.subtotal),
         items: zipnovaItems,
         destination: {
           city: destAddress.city,
@@ -216,6 +217,18 @@ export class ShippingService {
         throw new NotFoundException('Orden no encontrada');
       }
 
+      // Verificar si ya existe un envío para esta orden
+      const existingShipment = await this.shipmentRepository.findOne({
+        where: { order: { id: orderId } },
+      });
+
+      if (existingShipment) {
+        throw new BadRequestException(
+          `Ya existe un envío para esta orden (ID: ${existingShipment.id}, Tracking: ${existingShipment.trackingNumber}). ` +
+          `Si necesitás crear uno nuevo, primero cancelá el envío existente.`
+        );
+      }
+
       const destAddress = await this.addressRepository.findOne({
         where: { id: destinationAddressId },
       });
@@ -230,12 +243,13 @@ export class ShippingService {
       const streetNumber = streetParts ? streetParts[2] : '0';
 
       // ✅ PREPARAR REQUEST con campos obligatorios de Zipnova
+      // declared_value = valor de los productos (subtotal), no el total con impuestos
       const shipmentRequest: ZipnovaShipmentRequest = {
         account_id: this.zipnovaAccountId,
         origin_id: this.zipnovaOriginId,
         service_type: serviceType || 'standard_delivery',
         external_id: order.orderNumber,
-        declared_value: Number(order.total),
+        declared_value: Number(order.subtotal),
         items: order.items.map((item: any) => ({
           sku: item.id || item.productId,
           weight: item.weight || 100,
