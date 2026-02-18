@@ -92,17 +92,24 @@ export interface ZipnovaShipmentRequest {
 }
 
 /**
- * Respuesta de creación de envío
+ * Respuesta de creación de envío (estructura real de Zipnova)
  */
 export interface ZipnovaShipmentResponse {
-  id: string; // ID del envío en Zipnova
-  status: string; // Estado del envío
-  tracking_number: string; // Número de rastreo
-  carrier: string;
-  service: string;
-  estimated_delivery: string; // Fecha estimada
-  label_url?: string; // URL de la etiqueta
-  reference: string;
+  id: string | number;
+  status: string;
+  tracking_number?: string;
+  external_id?: string;
+  carrier: string | { id: number; name: string; logo?: string };
+  service: string | { id: number; code: string; name: string };
+  service_type?: { id: number; code: string; name: string };
+  estimated_delivery?: string;
+  delivery_time?: { min?: number; max?: number; estimated_delivery?: string };
+  estimated_days?: number;
+  label_url?: string;
+  label?: { url?: string };
+  reference?: string;
+  amounts?: { price?: number; price_incl_tax?: number };
+  [key: string]: any; // permitir campos extra
 }
 
 /**

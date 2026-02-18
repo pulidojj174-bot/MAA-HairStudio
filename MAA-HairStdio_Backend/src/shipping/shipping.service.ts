@@ -278,20 +278,44 @@ export class ShippingService {
 
       const zipnovaShipment = response.data;
 
+      this.logger.log(`📨 Respuesta Zipnova create: ${JSON.stringify(zipnovaShipment)}`);
+
+      // Zipnova devuelve carrier como objeto { id, name, ... } o como string
+      const carrierName = typeof zipnovaShipment.carrier === 'object'
+        ? zipnovaShipment.carrier?.name || 'other'
+        : zipnovaShipment.carrier || 'other';
+
+      const serviceName = typeof zipnovaShipment.service === 'object'
+        ? zipnovaShipment.service?.code || zipnovaShipment.service?.name || 'standard'
+        : zipnovaShipment.service || 'standard';
+
+      const trackingNumber = zipnovaShipment.tracking_number
+        || zipnovaShipment.trackingNumber
+        || zipnovaShipment.external_id
+        || order.orderNumber;
+
+      const labelUrl = zipnovaShipment.label_url
+        || zipnovaShipment.label?.url
+        || undefined;
+
+      const estimatedDays = zipnovaShipment.delivery_time?.max
+        || zipnovaShipment.estimated_days
+        || 5;
+
       // ✅ GUARDAR EN BD
       const shipment = new Shipment();
       shipment.order = order;
       shipment.destinationAddress = destAddress;
-      shipment.zipnovaShipmentId = zipnovaShipment.id;
+      shipment.zipnovaShipmentId = String(zipnovaShipment.id);
       shipment.zipnovaQuoteId = zipnovaQuoteId;
-      shipment.trackingNumber = zipnovaShipment.tracking_number;
-      shipment.carrier = this.mapCarrier(zipnovaShipment.carrier);
-      shipment.service = this.mapService(zipnovaShipment.service);
+      shipment.trackingNumber = trackingNumber;
+      shipment.carrier = this.mapCarrier(carrierName);
+      shipment.service = this.mapService(serviceName);
       shipment.status = ShippingStatusEnum.CONFIRMED;
       shipment.statusDescription = 'Envío confirmado y listo para retirar';
-      shipment.labelUrl = zipnovaShipment.label_url;
+      shipment.labelUrl = labelUrl;
       shipment.shippingCost = safeShippingCost;
-      shipment.estimatedDays = 5; // Por defecto
+      shipment.estimatedDays = estimatedDays;
       shipment.zipnovaMetadata = zipnovaShipment;
       shipment.totalWeight = (order.items.length * 100) / 1000; // En kg
 
