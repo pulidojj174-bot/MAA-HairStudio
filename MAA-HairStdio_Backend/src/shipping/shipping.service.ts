@@ -272,6 +272,7 @@ export class ShippingService {
           length: item.length || 10,
           description: item.productName,
           quantity: item.quantity,
+          classification_id: 1, // Debe coincidir con lo enviado en la cotización
         })),
         destination: {
           name: destAddress.recipientName,
