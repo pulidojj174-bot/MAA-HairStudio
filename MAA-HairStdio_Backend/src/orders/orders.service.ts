@@ -336,7 +336,7 @@ export class OrdersService {
     // NOTA: El shippingCost que llega de Zipnova ya incluye IVA (price_incl_tax).
     // Por eso calculamos IVA solo sobre el subtotal de productos.
     const tax = Number((subtotal * 0.21).toFixed(2));
-    const total = Number((subtotal + tax + safeShippingCost).toFixed(2));
+    const total = Number((subtotal + safeShippingCost).toFixed(2));
 
     order.shippingCost = safeShippingCost;
     order.tax = tax;
