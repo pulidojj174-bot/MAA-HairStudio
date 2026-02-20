@@ -91,7 +91,7 @@ export class PaymentsService {
         id: item.product?.id || item.id,
         title: item.productName,
         quantity: item.quantity,
-        unit_price: Math.round(Number(item.unitPrice) * 1.21), // Precio con IVA incluido
+        unit_price: Math.round(Number(item.unitPrice)), // Precio con IVA incluido
         description: `${item.productBrand || ''} - ${item.productVolume || ''}`.trim(),
         picture_url: item.productImage || '',
         category_id: this.getCategoryIdForProduct(item),
