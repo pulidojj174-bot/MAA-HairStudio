@@ -291,11 +291,13 @@ export class ShippingService {
         // Zipnova usa logistic_type + service_type + carrier_id en su lugar
       };
 
+      const createUrl = `${this.zipnovaApiUrl}/shipments`;
+      this.logger.log(`📦 URL Zipnova: ${createUrl}`);
       this.logger.log(`📦 Request a Zipnova: ${JSON.stringify(shipmentRequest)}`);
 
       // ✅ CREAR ENVÍO EN ZIPNOVA
       const response = await axios.post<ZipnovaShipmentResponse>(
-        `${this.zipnovaApiUrl}/shipments`,
+        createUrl,
         shipmentRequest,
         {
           headers: {
@@ -370,10 +372,14 @@ export class ShippingService {
       };
     } catch (error) {
       if (error.response?.data) {
-        this.logger.error(`❌ Error creando envío - Zipnova respondió:`, JSON.stringify(error.response.data));
+        this.logger.error(`❌ Error creando envío - HTTP ${error.response?.status} - URL: ${error.config?.url}`);
+        this.logger.error(`❌ Zipnova respondió: ${JSON.stringify(error.response.data)}`);
+        this.logger.error(`❌ Request enviado: ${JSON.stringify(error.config?.data)}`);
         throw new BadRequestException({
           message: 'Error al crear envío con Zipnova',
           zipnovaError: error.response.data,
+          httpStatus: error.response?.status,
+          requestUrl: error.config?.url,
         });
       }
       this.logger.error(`❌ Error creando envío: ${error.message}`);
