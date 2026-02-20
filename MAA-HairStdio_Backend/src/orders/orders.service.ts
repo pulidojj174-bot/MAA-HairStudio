@@ -139,7 +139,7 @@ export class OrdersService {
       }, 0);
 
       const shippingCost = 0;
-      const tax = subtotal * 0.21; // IVA Argentina 21%
+      const tax = subtotal; // IVA Argentina 21%
       const total = subtotal + tax;
 
       const isShippingCostSet = deliveryType === DeliveryType.PICKUP;
@@ -337,7 +337,7 @@ export class OrdersService {
     // Por eso calculamos IVA solo sobre el subtotal de productos.
     // Si se envía el precio SIN IVA (priceWithoutTax), cambiar a:
     //   taxableBase = subtotal + safeShippingCost; tax = taxableBase * 0.21; total = taxableBase + tax;
-    const tax = Number((subtotal * 0.21).toFixed(2));
+    const tax = Number((subtotal).toFixed(2));
     const total = Number((subtotal + tax + safeShippingCost).toFixed(2));
 
     order.shippingCost = safeShippingCost;
