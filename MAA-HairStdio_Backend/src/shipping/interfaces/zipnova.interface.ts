@@ -25,58 +25,113 @@ export interface ZipnovaDestination {
 }
 
 /**
- * Request para cotizar envío
+ * Request para cotizar envío (basado en items - recomendado)
+ * POST /v2/shipments/quote
+ * Docs: https://docs.zipnova.com/envios/recursos-api/envios/cotizar-envios
  */
 export interface ZipnovaQuoteRequest {
-  account_id: string; // ID de cuenta en Zipnova
-  origin_id: string; // ID de sucursal origen
-  declared_value: number; // Valor declarado en pesos
+  account_id: string;
+  origin_id: string;
+  declared_value: number;
   items: ZipnovaShippingItem[];
   destination: ZipnovaDestination;
-  delivery_type?: 'delivery' | 'pickup'; // Tipo de entrega
+  delivery_type?: 'delivery' | 'pickup';
+  source?: string; // Identifica tu integración (para Motor de Reglas)
 }
 
 /**
- * Respuesta de cotización
+ * Estructura de un resultado de cotización (dentro de all_results[])
+ * Docs: https://docs.zipnova.com/envios/recursos-api/envios/cotizar-envios
+ */
+export interface ZipnovaQuoteResult {
+  selectable: boolean;
+  impediments: string | null;
+  logistic_type: string; // "crossdock", "carrier_dropoff", "carrier_pickup", etc.
+  carrier: {
+    id: number;
+    name: string;
+    rating: number;
+    logo: string;
+  };
+  service_type: {
+    id: number;
+    code: string; // "standard_delivery", "pickup_point", etc.
+    name: string;
+    is_urgent: number;
+  };
+  delivery_time: {
+    min: number;
+    max: number;
+    estimated_delivery?: string;
+  };
+  amounts: {
+    price_shipment: number;    // Precio del flete sin seguro
+    price_insurance: number;   // Precio del seguro
+    price: number;             // Total sin IVA (flete + seguro)
+    price_incl_tax: number;    // Total con IVA
+    seller_price?: number;     // Lo que paga el vendedor (sin IVA)
+    seller_price_incl_tax?: number; // Lo que paga el vendedor (con IVA)
+  };
+  rate: {
+    source: string;
+    id: number;
+    tariff_id: number;
+  };
+  tags: string[]; // "cheapest", "fastest", etc.
+  pickup_points?: Array<{
+    point_id: number;
+    description: string;
+    location: {
+      street: string;
+      street_number: string;
+      city: string;
+      state: string;
+      zipcode: string;
+    };
+    phone?: string;
+  }>;
+}
+
+/**
+ * Respuesta completa de cotización
  */
 export interface ZipnovaQuoteResponse {
-  id: string; // ID de la cotización
-  carrier: string; // Transportista (ej: "OCA", "Andreani")
-  service: string; // Servicio (ej: "express", "standard")
-  estimated_days: number; // Días estimados de entrega
-  price: number; // Precio del envío
-  base_price: number;
-  taxes: number;
-  insurance: number;
-  observations?: string;
-  status: string;
+  sorted_by: string;
+  origin: any;
+  destination: {
+    id: number;
+    city: string;
+    state: string;
+    zipcode: string;
+  };
+  packages: any[];
+  declared_value: number;
+  results: Record<string, ZipnovaQuoteResult>; // Keyed by service_type code
+  all_results: ZipnovaQuoteResult[];
 }
 
 /**
- * Opciones de envío disponibles
- */
-export interface ZipnovaShippingOption {
-  id: string;
-  carrier: string;
-  service: string;
-  price: number;
-  estimated_days: number;
-  currency: string;
-}
-
-/**
- * Request para crear envío
+ * Request para crear envío (basado en items - recomendado)
+ * POST /v2/shipments
+ * Docs: https://docs.zipnova.com/envios/recursos-api/envios/crear-envios
+ *
+ * IMPORTANTE: logistic_type, service_type y carrier_id deben venir de la cotización previa.
+ * Si es pickup_point, también se necesita point_id.
  */
 export interface ZipnovaShipmentRequest {
   account_id: string;
   origin_id: string;
-  service_type: string; // "standard_delivery" | "pickup_point" etc.
-  external_id: string; // ID externo (nuestro orderNumber)
+  logistic_type: string;   // De la cotización: "crossdock", "carrier_dropoff", "carrier_pickup"
+  service_type: string;    // De la cotización: "standard_delivery", "pickup_point"
+  carrier_id: number;      // De la cotización: carrier.id
+  external_id: string;     // ID externo (nuestro orderNumber)
   declared_value: number;
+  source?: string;         // Identifica tu integración
+  point_id?: number;       // Solo para pickup_point: ID del punto de retiro
   items: ZipnovaShippingItem[];
   destination: {
-    name: string; // Nombre del destinatario
-    document: string; // DNI/CUIT del destinatario
+    name: string;
+    document: string;
     phone: string;
     email: string;
     city: string;
@@ -92,24 +147,61 @@ export interface ZipnovaShipmentRequest {
 }
 
 /**
- * Respuesta de creación de envío (estructura real de Zipnova)
+ * Respuesta de creación de envío
+ * Docs: https://docs.zipnova.com/envios/recursos-api/envios/crear-envios
  */
 export interface ZipnovaShipmentResponse {
-  id: string | number;
-  status: string;
-  tracking_number?: string;
-  external_id?: string;
-  carrier: string | { id: number; name: string; logo?: string };
-  service: string | { id: number; code: string; name: string };
-  service_type?: { id: number; code: string; name: string };
-  estimated_delivery?: string;
-  delivery_time?: { min?: number; max?: number; estimated_delivery?: string };
-  estimated_days?: number;
-  label_url?: string;
-  label?: { url?: string };
-  reference?: string;
-  amounts?: { price?: number; price_incl_tax?: number };
-  [key: string]: any; // permitir campos extra
+  id: number;
+  external_id: string;
+  delivery_id: string; // Ej: "0999-00151060"
+  carrier_tracking_id: string | null;
+  created_at: string;
+  account_id: number;
+  parent_shipment_id: number | null;
+  logistic_type: string;
+  service_type: string;
+  carrier: {
+    id: number;
+    name: string;
+    logo: string;
+  };
+  status: string; // "new", "ready_to_ship", "in_transit", "delivered", etc.
+  status_name: string; // "Procesando", "En tránsito", etc.
+  tracking: string; // URL de tracking interna de Zipnova
+  tracking_external: string; // URL de tracking pública
+  destination: {
+    name: string;
+    document: string;
+    street: string;
+    street_number: string;
+    street_extras: string;
+    city: string;
+    state: string;
+    zipcode: string;
+    phone: string;
+    email: string;
+  };
+  origin: {
+    id: number;
+    name: string;
+    document: string;
+    street: string;
+    street_number: string;
+    street_extras: string;
+    city: string;
+    state: string;
+    zipcode: string;
+    phone: string;
+    email: string;
+  };
+  declared_value: number;
+  price: number; // Sin IVA
+  price_incl_tax: number; // Con IVA
+  total_weight: number;
+  total_volume: number;
+  packages: any[];
+  tags: string[];
+  [key: string]: any;
 }
 
 /**

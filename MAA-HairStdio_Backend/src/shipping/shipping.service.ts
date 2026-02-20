@@ -146,6 +146,7 @@ export class ShippingService {
       this.logger.log(`✅ Cotizaciones obtenidas: ${allResults.length} opciones`);
 
       // Mapear la estructura real de Zipnova a nuestra respuesta
+      // IMPORTANTE: logistic_type, carrier.id y service_type.code son necesarios para crear el envío
       const options = allResults
         .filter((r: any) => r.selectable)
         .map((r: any) => ({
@@ -154,9 +155,13 @@ export class ShippingService {
           carrierLogo: r.carrier?.logo,
           serviceType: r.service_type?.code || 'standard_delivery',
           serviceName: r.service_type?.name || 'Entrega estándar',
+          logisticType: r.logistic_type || 'crossdock', // Necesario para crear envío
           price: r.amounts?.price_incl_tax || r.amounts?.price || 0,
           priceWithoutTax: r.amounts?.price || 0,
+          priceShipment: r.amounts?.price_shipment || 0,
+          priceInsurance: r.amounts?.price_insurance || 0,
           estimatedDays: r.delivery_time?.max || 0,
+          estimatedDeliveryMin: r.delivery_time?.min || 0,
           estimatedDelivery: r.delivery_time?.estimated_delivery || null,
           tags: r.tags || [],
           pickupPoints: r.pickup_points?.map((pp: any) => ({
@@ -197,7 +202,10 @@ export class ShippingService {
     destinationAddressId: string,
     zipnovaQuoteId: string,
     shippingCost: number,
-    serviceType?: string,
+    serviceType: string,
+    logisticType: string,
+    carrierId: number,
+    pointId?: number,
   ): Promise<any> {
     try {
       this.logger.log(`📮 Creando envío para orden: ${orderId} con quote: ${zipnovaQuoteId}`);
@@ -243,13 +251,19 @@ export class ShippingService {
       const streetNumber = streetParts ? streetParts[2] : '0';
 
       // ✅ PREPARAR REQUEST con campos obligatorios de Zipnova
+      // Docs: https://docs.zipnova.com/envios/recursos-api/envios/crear-envios
+      // logistic_type, service_type y carrier_id vienen de la cotización previa
       // declared_value = valor de los productos (subtotal), no el total con impuestos
       const shipmentRequest: ZipnovaShipmentRequest = {
         account_id: this.zipnovaAccountId,
         origin_id: this.zipnovaOriginId,
+        logistic_type: logisticType,
         service_type: serviceType || 'standard_delivery',
+        carrier_id: carrierId,
         external_id: order.orderNumber,
         declared_value: Number(order.subtotal),
+        source: 'maa-hairstudio-backend',
+        ...(pointId ? { point_id: pointId } : {}),
         items: order.items.map((item: any) => ({
           sku: item.id || item.productId,
           weight: item.weight || 100,
@@ -294,27 +308,24 @@ export class ShippingService {
 
       this.logger.log(`📨 Respuesta Zipnova create: ${JSON.stringify(zipnovaShipment)}`);
 
-      // Zipnova devuelve carrier como objeto { id, name, ... } o como string
-      const carrierName = typeof zipnovaShipment.carrier === 'object'
-        ? zipnovaShipment.carrier?.name || 'other'
-        : zipnovaShipment.carrier || 'other';
+      // Mapear respuesta según la estructura documentada de Zipnova
+      const carrierName = zipnovaShipment.carrier?.name || 'other';
 
-      const serviceName = typeof zipnovaShipment.service === 'object'
-        ? zipnovaShipment.service?.code || zipnovaShipment.service?.name || 'standard'
-        : zipnovaShipment.service || 'standard';
+      const serviceName = zipnovaShipment.service_type || serviceType || 'standard';
 
-      const trackingNumber = zipnovaShipment.tracking_number
-        || zipnovaShipment.trackingNumber
+      const trackingNumber = zipnovaShipment.carrier_tracking_id
+        || zipnovaShipment.delivery_id
         || zipnovaShipment.external_id
         || order.orderNumber;
 
-      const labelUrl = zipnovaShipment.label_url
-        || zipnovaShipment.label?.url
+      // Zipnova provee URLs de tracking
+      const trackingUrl = zipnovaShipment.tracking_external
+        || zipnovaShipment.tracking
         || undefined;
 
-      const estimatedDays = zipnovaShipment.delivery_time?.max
-        || zipnovaShipment.estimated_days
-        || 5;
+      const labelUrl = undefined; // La etiqueta se obtiene por separado en Zipnova
+
+      const estimatedDays = 5; // Se puede obtener de la cotización previa
 
       // ✅ GUARDAR EN BD
       const shipment = new Shipment();
@@ -326,12 +337,15 @@ export class ShippingService {
       shipment.carrier = this.mapCarrier(carrierName);
       shipment.service = this.mapService(serviceName);
       shipment.status = ShippingStatusEnum.CONFIRMED;
-      shipment.statusDescription = 'Envío confirmado y listo para retirar';
+      shipment.statusDescription = zipnovaShipment.status_name || 'Envío confirmado y listo para retirar';
       shipment.labelUrl = labelUrl;
       shipment.shippingCost = safeShippingCost;
       shipment.estimatedDays = estimatedDays;
-      shipment.zipnovaMetadata = zipnovaShipment;
-      shipment.totalWeight = (order.items.length * 100) / 1000; // En kg
+      shipment.zipnovaMetadata = {
+        ...zipnovaShipment,
+        trackingUrl,
+      };
+      shipment.totalWeight = (zipnovaShipment.total_weight || (order.items.length * 100)) / 1000; // En kg
 
       const savedShipment = await this.shipmentRepository.save(shipment);
 

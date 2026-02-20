@@ -29,9 +29,18 @@ export class CreateShippingDto {
   @Min(0)
   shippingCost: number;
 
-  @IsOptional()
   @IsString()
-  serviceType?: string; // "standard_delivery" | "pickup_point" (default: standard_delivery)
+  serviceType: string; // De la cotización: "standard_delivery" | "pickup_point"
+
+  @IsString()
+  logisticType: string; // De la cotización: "crossdock" | "carrier_dropoff" | "carrier_pickup"
+
+  @IsNumber()
+  carrierId: number; // De la cotización: carrier.id
+
+  @IsOptional()
+  @IsNumber()
+  pointId?: number; // Solo para pickup_point: ID del punto de retiro
 
   @IsOptional()
   @IsString()
