@@ -30,16 +30,16 @@
         │   { carrier: "OCA",                      │
         │     carrierId: 208,                ← 💾  │
         │     serviceType: "standard_delivery", ←  │
-        │     logisticType: "crossdock",     ← 💾  │
-        │     price: 8631,                   ← 💾  │
-        │     estimatedDays: 7,                    │
+        │     logisticType: "carrier_dropoff",← 💾 │
+        │     price: 8630,                   ← 💾  │
+        │     estimatedDays: 6,                    │
         │     tags: ["cheapest"] },                │
         │   { carrier: "Correo Argentino",         │
-        │     carrierId: 209,                      │
+        │     carrierId: 233,                      │
         │     serviceType: "pickup_point",         │
         │     logisticType: "carrier_dropoff",     │
-        │     price: 9673,                         │
-        │     pickupPoints: [{pointId: 12345}] }   │
+        │     price: 9672,                         │
+        │     pickupPoints: [{pointId: 10319}] }   │
         │ ]                                        │
         │                                          │
         │ 💾 Frontend guarda: carrierId,           │
@@ -54,9 +54,9 @@
         │    orderId,                                │
         │    destinationAddressId,                   │
         │    zipnovaQuoteId: "208",                  │
-        │    shippingCost: 8631,       ← de quote   │
+        │    shippingCost: 8630,       ← de quote   │
         │    serviceType: "standard_delivery", ← ✨  │
-        │    logisticType: "crossdock",        ← ✨  │
+        │    logisticType: "carrier_dropoff",  ← ✨  │
         │    carrierId: 208            ← ✨         │
         │  }                                         │
         └───────────┬────────────────────────────────┘
@@ -97,7 +97,8 @@
         │                                            │
         │  ✅ Si isShippingCostSet=true:              │
         │     Crea preferencia MercadoPago con       │
-        │     total actualizado (subtotal+tax+envío) │
+        │     items = productos + IVA + envío         │
+        │     (cada uno como item separado en MP)    │
         └───────────┬────────────────────────────────┘
                     │
                     ▼
@@ -155,12 +156,12 @@
 │   total        = $1000 + $210 + $0 = $1210.00                  │
 │   status       = "awaiting_shipping_cost"                      │
 │                                                                 │
-│ DESPUÉS de crear envío (OCA $8631):                             │
+│ DESPUÉS de crear envío (OCA $8630):                             │
 │                                                                 │
 │   subtotal     = $1000.00  (sin cambio)                         │
-│   shippingCost = $8631.00  ← price_incl_tax de Zipnova         │
+│   shippingCost = $8630.00  ← price_incl_tax de Zipnova         │
 │   tax          = $1000 × 0.21 = $210.00  (IVA solo s/productos)│
-│   total        = $1000 + $210 + $8631 = $9841.00               │
+│   total        = $1000 + $210 + $8630 = $9840.00               │
 │   status       = "shipping_cost_set"                            │
 │                                                                 │
 │ ⚠️ El shipping de Zipnova ya incluye IVA → NO se grava doble   │

@@ -86,15 +86,53 @@ export class PaymentsService {
       const idempotencyKey = `mp-${order.id}-${Date.now()}`;
 
       // 4. Preparar items para Mercado Pago
-      const items = order.items.map((item) => ({
-        id: item.product?.id || item.id, // ✅ ID del producto
+      const items: MercadoPagoPreferenceItem[] = order.items.map((item) => ({
+        id: item.product?.id || item.id,
         title: item.productName,
         quantity: item.quantity,
         unit_price: Math.round(Number(item.unitPrice)),
         description: `${item.productBrand || ''} - ${item.productVolume || ''}`.trim(),
         picture_url: item.productImage || '',
-        category_id: this.getCategoryIdForProduct(item), // ✅ Categoría dinámica
+        category_id: this.getCategoryIdForProduct(item),
       }));
+
+      // ✅ Agregar IVA como item separado para que MP cobre el total correcto
+      const taxAmount = Math.round(Number(order.tax));
+      if (taxAmount > 0) {
+        items.push({
+          id: `tax-${order.id}`,
+          title: 'IVA (21%)',
+          quantity: 1,
+          unit_price: taxAmount,
+          description: 'Impuesto al Valor Agregado',
+        });
+      }
+
+      // ✅ Agregar costo de envío como item separado (solo si es delivery con envío)
+      const shippingAmount = Math.round(Number(order.shippingCost));
+      if (shippingAmount > 0 && order.isShippingCostSet) {
+        items.push({
+          id: `shipping-${order.id}`,
+          title: 'Costo de envío',
+          quantity: 1,
+          unit_price: shippingAmount,
+          description: 'Envío a domicilio',
+        });
+      }
+
+      // Verificar que la suma de items coincide con order.total
+      const itemsTotal = items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+      const orderTotal = Math.round(Number(order.total));
+      if (Math.abs(itemsTotal - orderTotal) > 1) {
+        this.logger.warn(
+          `⚠️ Diferencia entre items MP ($${itemsTotal}) y order.total ($${orderTotal}). ` +
+          `Subtotal: $${order.subtotal}, Tax: $${order.tax}, Shipping: $${order.shippingCost}`
+        );
+      }
+
+      this.logger.log(
+        `💰 Preference items: ${items.length} items, Total items: $${itemsTotal}, Order total: $${orderTotal}`
+      );
 
       // 6. Construir preference
       const preference: MercadoPagoPreference = {
