@@ -286,7 +286,8 @@ export class ShippingService {
           floor: destAddress.addressLine2 || undefined,
           instructions: destAddress.deliveryInstructions,
         },
-        delivery_type: 'delivery',
+        // ❌ NO enviar delivery_type en creación - solo es para cotización
+        // Zipnova usa logistic_type + service_type + carrier_id en su lugar
       };
 
       this.logger.log(`📦 Request a Zipnova: ${JSON.stringify(shipmentRequest)}`);

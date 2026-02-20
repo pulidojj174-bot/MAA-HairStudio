@@ -143,7 +143,7 @@ export interface ZipnovaShipmentRequest {
     apartment?: string;
     instructions?: string;
   };
-  delivery_type: 'delivery' | 'pickup';
+  // delivery_type NO va en creación de envío - solo en cotización
 }
 
 /**
