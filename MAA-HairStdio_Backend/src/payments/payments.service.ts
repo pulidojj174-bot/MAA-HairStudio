@@ -86,27 +86,16 @@ export class PaymentsService {
       const idempotencyKey = `mp-${order.id}-${Date.now()}`;
 
       // 4. Preparar items para Mercado Pago
+      // El unit_price incluye IVA (precio × 1.21) para que MP cobre el total correcto
       const items: MercadoPagoPreferenceItem[] = order.items.map((item) => ({
         id: item.product?.id || item.id,
         title: item.productName,
         quantity: item.quantity,
-        unit_price: Math.round(Number(item.unitPrice)),
+        unit_price: Math.round(Number(item.unitPrice) * 1.21), // Precio con IVA incluido
         description: `${item.productBrand || ''} - ${item.productVolume || ''}`.trim(),
         picture_url: item.productImage || '',
         category_id: this.getCategoryIdForProduct(item),
       }));
-
-      // ✅ Agregar IVA como item separado para que MP cobre el total correcto
-      const taxAmount = Math.round(Number(order.tax));
-      if (taxAmount > 0) {
-        items.push({
-          id: `tax-${order.id}`,
-          title: 'IVA (21%)',
-          quantity: 1,
-          unit_price: taxAmount,
-          description: 'Impuesto al Valor Agregado',
-        });
-      }
 
       // ✅ Agregar costo de envío como item separado (solo si es delivery con envío)
       const shippingAmount = Math.round(Number(order.shippingCost));

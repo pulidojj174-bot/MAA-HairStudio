@@ -139,8 +139,8 @@ export class OrdersService {
       }, 0);
 
       const shippingCost = 0;
-      const tax = subtotal; // IVA Argentina 21%
-      const total = subtotal + tax;
+      const tax = Number((subtotal * 0.21).toFixed(2)); // IVA Argentina 21%
+      const total = Number((subtotal + tax).toFixed(2));
 
       const isShippingCostSet = deliveryType === DeliveryType.PICKUP;
       const initialStatus = deliveryType === DeliveryType.DELIVERY
