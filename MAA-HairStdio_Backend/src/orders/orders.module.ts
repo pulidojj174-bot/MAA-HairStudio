@@ -28,6 +28,6 @@ import { CartModule } from '../cart/cart.module';  // ✅ Agregar
   ],
   controllers: [OrdersController],
   providers: [OrdersService],
-  exports: [OrdersService],
+  exports: [OrdersService, TypeOrmModule],
 })
 export class OrdersModule {}
