@@ -223,8 +223,8 @@ export class OrdersService {
 
       await queryRunner.manager.save(OrderItem, orderItems);
 
-      // 8. Limpiar carrito
-      await queryRunner.manager.delete('cart_items', { cart: { id: cart.id } });
+      // 8. NO limpiar carrito aquí — se limpia cuando el pago sea aprobado
+      // El carrito se mantiene hasta que MercadoPago confirme el pago exitoso
 
       this.logger.log(
         `Orden ${orderNumber} creada exitosamente. ` +

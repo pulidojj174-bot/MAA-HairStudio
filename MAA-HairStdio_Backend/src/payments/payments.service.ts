@@ -12,6 +12,7 @@ import { PaymentTransaction } from './entities/payment-transaction.entity';
 import { Order, OrderStatus, PaymentStatus } from '../orders/orders.entity';
 import { CreatePaymentDto, PaymentResponseDto } from './dto/create-payment.dto';
 import { MercadoPagoPreferenceItem } from './interfaces/mercado-pago.interface';
+import { CartService } from '../cart/cart.service';
 import {
   MercadoPagoConfig,
   Preference,
@@ -33,6 +34,7 @@ export class PaymentsService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     private readonly configService: ConfigService,
+    private readonly cartService: CartService,
   ) {
     this.accessToken =
       this.configService.get<string>('MERCADO_PAGO_ACCESS_TOKEN') || '';
@@ -402,7 +404,19 @@ export class PaymentsService {
 
       await this.transactionRepository.save(transaction);
 
-      // 3. Enviar notificación (implementar más adelante)
+      // 3. Limpiar carrito del usuario ahora que el pago fue aprobado
+      try {
+        const userId = payment.user?.id || order.user?.id;
+        if (userId) {
+          await this.cartService.clearCart(userId);
+          this.logger.log(`🧹 Carrito del usuario ${userId} limpiado tras pago aprobado`);
+        }
+      } catch (cartError) {
+        this.logger.warn(`⚠️ No se pudo limpiar el carrito: ${cartError.message}`);
+        // No fallar el flujo de pago por error al limpiar carrito
+      }
+
+      // 4. Enviar notificación
       await this.sendPaymentApprovedNotification(order, payment);
 
       this.logger.log(`✅ Orden ${order.orderNumber} marcada como pagada`);
