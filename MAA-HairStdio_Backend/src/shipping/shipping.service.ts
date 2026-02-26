@@ -263,7 +263,6 @@ export class ShippingService {
         external_id: order.orderNumber,
         declared_value: Number(order.subtotal),
         source: 'maa-hairstudio-backend',
-        ...(pointId ? { point_id: pointId } : {}),
         items: order.items.map((item: any) => ({
           sku: item.id || item.productId,
           weight: item.weight || 100,
@@ -286,6 +285,7 @@ export class ShippingService {
           street_number: streetNumber,
           floor: destAddress.addressLine2 || undefined,
           instructions: destAddress.deliveryInstructions,
+          ...(pointId ? { point_id: pointId } : {}),
         },
         // ❌ NO enviar delivery_type en creación - solo es para cotización
         // Zipnova usa logistic_type + service_type + carrier_id en su lugar

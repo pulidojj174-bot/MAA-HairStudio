@@ -127,7 +127,6 @@ export interface ZipnovaShipmentRequest {
   external_id: string;     // ID externo (nuestro orderNumber)
   declared_value: number;
   source?: string;         // Identifica tu integración
-  point_id?: number;       // Solo para pickup_point: ID del punto de retiro
   items: ZipnovaShippingItem[];
   destination: {
     name: string;
@@ -142,6 +141,7 @@ export interface ZipnovaShipmentRequest {
     floor?: string;
     apartment?: string;
     instructions?: string;
+    point_id?: number;     // Solo para pickup_point: ID del punto de retiro
   };
   // delivery_type NO va en creación de envío - solo en cotización
 }
